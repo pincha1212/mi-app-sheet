@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Web App con Google Sheets</title>
+    <!-- Usamos Pico CSS para que se vea limpio sin diseñar desde cero -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Registro con Google Sheets</h1>
+            <p>Aplicación web conectada a Google Apps Script y Vercel.</p>
+        </header>
+        
+        <section>
+            <form id="myForm">
+                <label for="nombre">Nombre:</label>
+                <input type="text" id="nombre" name="nombre" placeholder="Tu nombre" required>
+
+                <label for="mensaje">Mensaje:</label>
+                <textarea id="mensaje" name="mensaje" placeholder="Escribe tu mensaje aquí..." required></textarea>
+
+                <button type="submit">Enviar datos</button>
+            </form>
+        </section>
+
+        <hr>
+
+        <section>
+            <h2>Datos guardados</h2>
+            <div id="data-container">Cargando datos...</div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
