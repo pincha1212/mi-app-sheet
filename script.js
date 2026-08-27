@@ -1,4 +1,4 @@
-// ⚠️ PEGA AQUÍ LA URL DE TU GOOGLE APPS SCRIPT QUE TERMINA EN /exec
+// ⚠️ TU URL DE GOOGLE APPS SCRIPT
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
 // 1. Obtener y mostrar datos al cargar la página
@@ -14,14 +14,20 @@ document.addEventListener("DOMContentLoaded", () => {
             
             let html = "<ul>";
             data.forEach(row => {
-                html += `<li><strong>${row.nombre || 'Sin nombre'}:</strong> ${row.mensaje || ''}</li>`;
+                // Obtenemos las llaves (keys) dinámicamente sin importar cómo se llamen tus columnas
+                const keys = Object.keys(row);
+                const fecha = row[keys[0]] || '';
+                const nombre = row[keys[1]] || 'Sin nombre';
+                const mensaje = row[keys[2]] || '';
+
+                html += `<li><strong>${nombre}:</strong> ${mensaje} <small style="color:gray;">(${fecha})</small></li>`;
             });
             html += "</ul>";
             container.innerHTML = html;
         })
         .catch(error => {
             console.error("Error al cargar:", error);
-            document.getElementById("data-container").innerHTML = "<p>Error al cargar los datos. Verifica la URL de tu script.</p>";
+            document.getElementById("data-container").innerHTML = "<p>Error al cargar los datos.</p>";
         });
 });
 
@@ -34,7 +40,6 @@ document.getElementById("myForm").addEventListener("submit", (e) => {
         mensaje: document.getElementById("mensaje").value
     };
 
-    // Usamos no-cors por restricción estándar de Google Apps Script en peticiones POST desde el navegador
     fetch(WEB_APP_URL, {
         method: "POST",
         mode: "no-cors", 
@@ -46,7 +51,6 @@ document.getElementById("myForm").addEventListener("submit", (e) => {
     .then(() => {
         alert("¡Datos enviados con éxito!");
         document.getElementById("myForm").reset();
-        // Esperamos un segundo y recargamos para ver el nuevo dato reflejado
         setTimeout(() => location.reload(), 1000);
     })
     .catch(error => {
