@@ -1,5 +1,8 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
+// ⚠️ PEGA AQUÍ TU URL DE APPS SCRIPT
+const WEB_APP_URL = "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
+
 // --- ESTADOS Y VARIABLES ---
 let bancoPalabras = [], rankingGlobal = [];
 let palabraActual = "", pistaActual = "", ultimaPalabra = "";
@@ -10,6 +13,7 @@ let recordPersonal = parseInt(localStorage.getItem("ahorcadoRecord")) || 0;
 // Estado Admin
 let modoEdicionAdmin = false;
 let palabraOriginalEditando = "";
+let busquedaAdmin = "";
 
 const ahorcadoASCII = [
   "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
@@ -29,8 +33,14 @@ function cambiarPantalla(idPantalla) {
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("menu-record").innerText = recordPersonal;
-    const datosCacheados = localStorage.getItem("ahorcadoData");
+    
+    // Listener Buscador Admin en tiempo real
+    document.getElementById("admin-buscador").addEventListener("input", (e) => {
+        busquedaAdmin = e.target.value.trim().toLowerCase();
+        renderizarTablaAdmin();
+    });
 
+    const datosCacheados = localStorage.getItem("ahorcadoData");
     if (datosCacheados) {
         const data = JSON.parse(datosCacheados);
         bancoPalabras = data.palabras;
@@ -67,7 +77,9 @@ function actualizarDatosSilencioso() {
             bancoPalabras = data.palabras; rankingGlobal = data.ranking;
             guardarCacheLocal();
             dibujarRanking(rankingGlobal);
-            renderizarTablaAdmin(); // Por si estamos en la vista admin
+            if(document.getElementById("pantalla-admin").classList.contains("activa")){
+                renderizarTablaAdmin();
+            }
         }
     }).catch(err => console.log("Caché omitido"));
 }
@@ -246,7 +258,6 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
 
     fetch(WEB_APP_URL, {
         method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-        // Envía action para que el backend lo reconozca
         body: JSON.stringify({ action: "saveScore", jugador: document.getElementById("nombreJugador").value, puntaje: puntajeAcumulado })
     }).then(() => {
         alert("¡Puntaje guardado con éxito!");
@@ -256,40 +267,81 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
     });
 });
 
-
-// --- MODO ADMINISTRADOR ---
+// --- MODO ADMINISTRADOR (MEJORADO) ---
 
 function abrirAdmin() {
     cambiarPantalla('pantalla-admin');
     cambiarSeccionAdmin('palabras');
+    busquedaAdmin = "";
+    document.getElementById("admin-buscador").value = "";
     renderizarTablaAdmin();
     cancelarEdicionAdmin();
+    setSyncStatus('success');
 }
 
 function cambiarSeccionAdmin(seccion) {
     document.querySelectorAll('.sec-admin').forEach(s => s.classList.remove('activa'));
     document.getElementById(`sec-admin-${seccion}`).classList.add('activa');
-    
     document.getElementById("nav-palabras").className = (seccion === 'palabras') ? "primary" : "secondary outline";
     document.getElementById("nav-config").className = (seccion === 'config') ? "primary" : "secondary outline";
 }
 
-function setSyncStatus(ok) {
+function setSyncStatus(estado) {
     const s = document.getElementById("sync-status");
-    s.innerText = ok ? "✔️ Datos sincronizados" : "⚠️ Error de sincronización";
-    s.style.color = ok ? "#2ea043" : "#da3633";
+    if (estado === 'syncing') {
+        s.innerHTML = "⏳ Sincronizando..."; s.style.color = "#58a6ff";
+    } else if (estado === 'success') {
+        s.innerHTML = "✔️ Sincronizado"; s.style.color = "#2ea043";
+    } else {
+        s.innerHTML = "⚠️ Error de sincronización"; s.style.color = "#da3633";
+    }
+}
+
+function mostrarNotificacionAdmin(mensaje, tipo) {
+    const toast = document.getElementById("admin-toast");
+    toast.innerText = mensaje;
+    toast.className = `toast-admin ${tipo} mostrar`;
+    setTimeout(() => { toast.classList.remove('mostrar'); }, 3000);
 }
 
 function renderizarTablaAdmin() {
     const tbody = document.getElementById("tabla-admin-palabras");
+    const contador = document.getElementById("contador-palabras");
     tbody.innerHTML = "";
-    bancoPalabras.forEach(item => {
+    
+    // 1. Actualiza Contador
+    contador.innerText = `${bancoPalabras.length} palabras en el banco`;
+
+    // 2. Estado vacío global
+    if (bancoPalabras.length === 0) {
+        tbody.innerHTML = `<tr><td colspan='3' style='text-align:center; padding: 3rem 1rem;'>
+            <span style="font-size:2rem;">📭</span><br>
+            No hay palabras en el banco.<br>Agrega la primera palabra para comenzar.</td></tr>`;
+        return;
+    }
+
+    // 3. Filtrado por buscador
+    const filtradas = bancoPalabras.filter(p => 
+        p.palabra.toLowerCase().includes(busquedaAdmin) || 
+        p.pista.toLowerCase().includes(busquedaAdmin)
+    );
+
+    // 4. Estado vacío por búsqueda
+    if (filtradas.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='3' style='text-align:center; padding: 2rem;'>No se encontraron resultados para tu búsqueda.</td></tr>";
+        return;
+    }
+
+    // 5. Renderizar filas
+    filtradas.forEach(item => {
+        // Escapar comillas simples para evitar romper el onclick
+        const pistaEscapada = item.pista.replace(/'/g, "\\'");
         tbody.innerHTML += `
             <tr>
                 <td><strong>${item.palabra}</strong></td>
-                <td>${item.pista}</td>
-                <td>
-                    <button class="outline secondary" style="padding: 0.2rem 0.5rem; border:none;" onclick="prepararEdicion('${item.palabra}', '${item.pista}')">✏️</button>
+                <td class="col-pista">${item.pista}</td>
+                <td style="text-align: center;">
+                    <button class="outline secondary" style="padding: 0.2rem 0.5rem; border:none;" onclick="prepararEdicion('${item.palabra}', '${pistaEscapada}')">✏️</button>
                     <button class="outline secondary" style="padding: 0.2rem 0.5rem; border:none; color: #da3633;" onclick="eliminarPalabra('${item.palabra}')">🗑️</button>
                 </td>
             </tr>
@@ -301,6 +353,7 @@ function cancelarEdicionAdmin() {
     modoEdicionAdmin = false;
     palabraOriginalEditando = "";
     document.getElementById("formAdminPalabra").reset();
+    document.getElementById("titulo-form-admin").innerText = "✨ Agregar Nueva Palabra";
     document.getElementById("admin-btn-guardar").innerText = "Agregar Palabra";
     document.getElementById("admin-btn-cancelar").style.display = "none";
 }
@@ -310,6 +363,7 @@ function prepararEdicion(palabra, pista) {
     palabraOriginalEditando = palabra;
     document.getElementById("admin-palabra").value = palabra;
     document.getElementById("admin-pista").value = pista;
+    document.getElementById("titulo-form-admin").innerText = "✏️ Editando Palabra";
     document.getElementById("admin-btn-guardar").innerText = "Guardar Cambios";
     document.getElementById("admin-btn-cancelar").style.display = "inline-block";
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -321,11 +375,10 @@ document.getElementById("formAdminPalabra").addEventListener("submit", (e) => {
     const inpPalabra = document.getElementById("admin-palabra").value.trim().toUpperCase();
     const inpPista = document.getElementById("admin-pista").value.trim();
     
-    if (!inpPalabra || !inpPista) return;
+    if (!inpPalabra || !inpPista) return mostrarNotificacionAdmin("Datos inválidos. Completa ambos campos.", "error");
 
-    // Verificar duplicados (ignora la propia palabra si estamos editándola)
     const esDuplicado = bancoPalabras.some(p => p.palabra === inpPalabra && (!modoEdicionAdmin || p.palabra !== palabraOriginalEditando));
-    if (esDuplicado) return alert("Esta palabra ya existe en el banco.");
+    if (esDuplicado) return mostrarNotificacionAdmin("Esta palabra ya existe en el banco.", "error");
 
     const payload = modoEdicionAdmin 
         ? { action: "editWord", oldPalabra: palabraOriginalEditando, newPalabra: inpPalabra, newPista: inpPista }
@@ -335,14 +388,16 @@ document.getElementById("formAdminPalabra").addEventListener("submit", (e) => {
     if (modoEdicionAdmin) {
         const idx = bancoPalabras.findIndex(p => p.palabra === palabraOriginalEditando);
         if(idx > -1) bancoPalabras[idx] = { palabra: inpPalabra, pista: inpPista };
+        mostrarNotificacionAdmin("Palabra editada correctamente", "success");
     } else {
         bancoPalabras.push({ palabra: inpPalabra, pista: inpPista });
+        mostrarNotificacionAdmin("Palabra agregada correctamente", "success");
     }
     
     guardarCacheLocal();
     renderizarTablaAdmin();
     cancelarEdicionAdmin();
-    setSyncStatus(false); // Ponemos status de sincronizando
+    setSyncStatus('syncing');
 
     // Enviar al servidor
     fetch(WEB_APP_URL, {
@@ -350,20 +405,24 @@ document.getElementById("formAdminPalabra").addEventListener("submit", (e) => {
         body: JSON.stringify(payload)
     })
     .then(() => {
-        setSyncStatus(true);
-        actualizarDatosSilencioso(); // Por seguridad, traemos el estado real del servidor
+        setSyncStatus('success');
+        actualizarDatosSilencioso(); 
     })
-    .catch(() => setSyncStatus(false));
+    .catch(() => {
+        setSyncStatus('error');
+        mostrarNotificacionAdmin("Error de conexión con el servidor.", "error");
+    });
 });
 
 function eliminarPalabra(palabra) {
-    if (!confirm(`¿Estás seguro de eliminar la palabra: ${palabra}?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar la palabra:\n"${palabra}"?`)) return;
     
     // Eliminación local optimista
     bancoPalabras = bancoPalabras.filter(p => p.palabra !== palabra);
     guardarCacheLocal();
     renderizarTablaAdmin();
-    setSyncStatus(false);
+    mostrarNotificacionAdmin("Palabra eliminada", "success");
+    setSyncStatus('syncing');
 
     // Enviar al servidor
     fetch(WEB_APP_URL, {
@@ -371,8 +430,11 @@ function eliminarPalabra(palabra) {
         body: JSON.stringify({ action: "deleteWord", palabra: palabra })
     })
     .then(() => {
-        setSyncStatus(true);
+        setSyncStatus('success');
         actualizarDatosSilencioso();
     })
-    .catch(() => setSyncStatus(false));
+    .catch(() => {
+        setSyncStatus('error');
+        mostrarNotificacionAdmin("Error al sincronizar eliminación", "error");
+    });
 }
