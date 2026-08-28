@@ -7,21 +7,50 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
         body { display: flex; align-items: center; min-height: 100vh; background-color: #11191f; }
-        .contenedor-juego { max-width: 600px; width: 100%; margin: auto; }
+        .contenedor-juego { max-width: 600px; width: 100%; margin: auto; position: relative; }
+        
         .pantalla { display: none; }
-        .pantalla.activa { display: block; animation: fadeIn 0.4s ease-in-out; }
-        .arte-ascii { font-family: 'Courier New', Courier, monospace; white-space: pre; background: #0d1117; padding: 1.5rem; border-radius: 12px; text-align: center; color: #2ea043; font-size: 1.2rem; line-height: 1.2; border: 1px solid #30363d; min-height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
+        .pantalla.activa { display: block; animation: fadeIn 0.3s ease-in-out; }
+        
+        /* Barra de Estadísticas Superior */
+        .stats-bar { display: flex; justify-content: space-between; background: #161f27; padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-weight: bold; border: 1px solid #30363d; font-size: 0.95rem; }
+        .stats-bar span { color: #58a6ff; transition: all 0.2s; }
+        .mult-activo { color: #d2a8ff !important; text-shadow: 0 0 8px rgba(210, 168, 255, 0.6); animation: pulse 1s infinite; }
+        
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.1rem;}
+        .vidas { font-size: 1.2rem;}
+        
+        .arte-ascii { font-family: 'Courier New', Courier, monospace; white-space: pre; background: #0d1117; padding: 1.5rem; border-radius: 12px; text-align: center; color: #2ea043; font-size: 1.2rem; line-height: 1.2; border: 1px solid #30363d; min-height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; transition: transform 0.1s; }
+        .shake { animation: shake 0.3s ease-in-out; }
+        
         .palabra-oculta { letter-spacing: 12px; font-size: 2.5rem; text-align: center; margin: 1.5rem 0; font-family: monospace; font-weight: bold; color: #e6edf3; }
-        .teclado { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        
+        .teclado { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; position: relative; }
         .teclado button { width: 48px; height: 48px; padding: 0; font-size: 1.2rem; font-weight: bold; border-radius: 8px; transition: all 0.2s; }
         .teclado button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
         .teclado button.acierto { background-color: #2ea043; border-color: #2ea043; color: white; opacity: 1; }
         .teclado button.error { background-color: #da3633; border-color: #da3633; color: white; opacity: 0.4; }
-        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.1rem;}
-        .vidas { font-size: 1.2rem;}
+        
+        /* Feedback visual flotante */
+        .feedback-flotante { position: absolute; pointer-events: none; font-weight: bold; font-size: 1.2rem; animation: floatUp 0.8s ease-out forwards; z-index: 10; }
+        .feedback-pos { color: #2ea043; text-shadow: 0 0 5px black; }
+        .feedback-neg { color: #da3633; text-shadow: 0 0 5px black; }
+        
         table { text-align: center; margin-top: 1rem; }
         th { color: #58a6ff; font-weight: bold; }
+        
+        /* Celebración Récord */
+        .nuevo-record { color: #f1e05a !important; text-shadow: 0 0 10px rgba(241, 224, 90, 0.5); font-size: 1.3rem; animation: pulse 1.5s infinite; margin-top: 1rem; }
+        
+        /* Desglose de puntos */
+        .desglose-puntos { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin: 1rem auto; max-width: 350px; text-align: left; font-size: 1rem; }
+        .desglose-puntos div { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .desglose-total { border-top: 1px solid #30363d; padding-top: 0.5rem; font-size: 1.4rem; font-weight: bold; color: #58a6ff; }
+        
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.3); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
     </style>
 </head>
 <body>
@@ -34,48 +63,62 @@
             </div>
 
             <div id="pantalla-inicio" class="pantalla" style="text-align: center;">
-                <button onclick="iniciarPartida()" style="margin-bottom: 2rem; max-width: 300px; margin-inline: auto;">🎮 Jugar Ahora</button>
+                <p>🏆 Récord Personal: <strong id="menu-record" style="color: #f1e05a;">0</strong> pts</p>
+                <button onclick="iniciarPartida(true)" style="margin-bottom: 2rem; max-width: 300px; margin-inline: auto;">🎮 Iniciar Nueva Partida</button>
                 
                 <h3>🏆 Salón de la Fama</h3>
                 <figure>
                     <table role="grid">
-                        <thead>
-                            <tr>
-                                <th>Top</th>
-                                <th>Jugador</th>
-                                <th>Puntaje</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-ranking">
-                            <!-- Se llena dinámicamente con JS -->
-                        </tbody>
+                        <thead><tr><th>Top</th><th>Jugador</th><th>Puntaje</th></tr></thead>
+                        <tbody id="tabla-ranking"></tbody>
                     </table>
                 </figure>
             </div>
 
             <div id="pantalla-juego" class="pantalla">
+                <div class="stats-bar">
+                    <div title="Mejor Puntuación">🏆 <span id="ui-record">0</span></div>
+                    <div title="Puntaje Actual">⭐ <span id="ui-puntaje">0</span></div>
+                    <div title="Racha y Multiplicador">🔥 Racha: <span id="ui-racha">0</span> (<span id="ui-mult">x1</span>)</div>
+                </div>
+
                 <div class="info-bar">
                     <span><strong>Pista:</strong> <span id="pistaTexto" style="color: #58a6ff;"></span></span>
-                    <span>Vidas: <span id="vidasTexto" class="vidas">❤️❤️❤️❤️❤️❤️</span></span>
+                    <span><span id="vidasTexto" class="vidas">❤️❤️❤️❤️❤️❤️</span></span>
                 </div>
+                
                 <div class="arte-ascii" id="dibujoAhorcado"></div>
                 <div class="palabra-oculta" id="palabraTexto"></div>
                 <div class="teclado" id="tecladoContenedor"></div>
             </div>
 
             <div id="pantalla-resultado" class="pantalla" style="text-align: center;">
-                <h2 id="mensajeFinal" style="font-size: 2.5rem;"></h2>
-                <p style="font-size: 1.2rem;">La palabra era: <strong id="palabraRevelada" style="color: #58a6ff;"></strong></p>
-                <p id="textoPuntaje" style="font-size: 1.5rem; font-weight: bold; display: none;">Tu puntaje: <span id="puntosFinales"></span></p>
+                <h2 id="mensajeFinal" style="font-size: 2.5rem; margin-bottom: 0;"></h2>
+                <div id="mensajeRécord" class="nuevo-record" style="display: none;">¡NUEVO RÉCORD PERSONAL! 👑</div>
                 
-                <form id="formPuntaje" style="display: none; max-width: 300px; margin: 2rem auto;">
-                    <label for="nombreJugador">¡Registra tu victoria!</label>
+                <p style="font-size: 1.1rem; margin-top: 1rem;">La palabra era: <strong id="palabraRevelada" style="color: #58a6ff;"></strong></p>
+                
+                <div class="desglose-puntos">
+                    <div><span>Puntos por letras:</span> <span id="res-letras">0</span></div>
+                    <div><span>Bonus Vidas Intactas:</span> <span id="res-vidas" style="color:#2ea043;">+0</span></div>
+                    <div><span>Bonus Racha (<span id="res-racha-num">0</span>):</span> <span id="res-racha-pts" style="color:#d2a8ff;">+0</span></div>
+                    <div class="desglose-total"><span>Puntaje Total:</span> <span id="puntosFinales">0</span></div>
+                </div>
+
+                <p id="mensajeRanking" style="font-weight: bold; color: #8b949e;"></p>
+                
+                <!-- Opciones post-partida -->
+                <div class="grid" style="margin-top: 2rem; gap: 1rem;">
+                    <button id="btnContinuar" onclick="iniciarPartida(false)" style="display: none; background-color: #2ea043; border-color: #2ea043;">Siguiente Palabra ⏭️</button>
+                    <button class="secondary outline" onclick="mostrarFormulario()">Guardar y Salir 💾</button>
+                </div>
+
+                <form id="formPuntaje" style="display: none; max-width: 300px; margin: 2rem auto; border-top: 1px solid #30363d; padding-top: 1.5rem;">
+                    <label for="nombreJugador">Registra tu puntaje en el ranking:</label>
                     <input type="text" id="nombreJugador" placeholder="Ingresa tu nombre" required>
                     <button type="submit" id="btnGuardar">Guardar Puntaje</button>
+                    <a href="#" onclick="volverAlMenu()" style="display: block; margin-top: 1rem; color: #8b949e;">Cancelar y volver al menú</a>
                 </form>
-
-                <!-- CAMBIO AQUÍ: Usamos volverAlMenu() en lugar de location.reload() -->
-                <button class="secondary outline" onclick="volverAlMenu()" style="margin-top: 1rem; max-width: 300px; margin-inline: auto;">Volver al Menú</button>
             </div>
         </article>
     </main>
