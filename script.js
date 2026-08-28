@@ -1,4 +1,4 @@
-// ⚠️ PEGA AQUÍ LA NUEVA URL DE APPS SCRIPT
+// ⚠️ PEGA AQUÍ TU URL DE APPS SCRIPT
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
 let bancoPalabras = [], palabraActual = "", pistaActual = "", letrasAdivinadas = [], errores = 0, puntajeActual = 0;
@@ -14,22 +14,25 @@ const ahorcadoASCII = [
   "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========="
 ];
 
+// Función para animar el cambio de pantallas limpiamente
+function cambiarPantalla(idPantalla) {
+    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+    document.getElementById(idPantalla).classList.add('activa');
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     fetch(WEB_APP_URL)
         .then(response => response.json())
         .then(data => {
-            if (data.error || data.length === 0) return document.getElementById("pantalla-carga").innerHTML = "<p>Error: Base de datos vacía.</p>";
+            if (data.error || data.length === 0) return document.getElementById("pantalla-carga").innerHTML = "<p style='text-align:center;'>Error: Base de datos vacía.</p>";
             bancoPalabras = data;
             iniciarPartida();
         })
-        .catch(() => document.getElementById("pantalla-carga").innerHTML = "<p>Error de conexión.</p>");
+        .catch(() => document.getElementById("pantalla-carga").innerHTML = "<p style='text-align:center; color:red;'>Error de conexión.</p>");
 });
 
 function iniciarPartida() {
     errores = 0; letrasAdivinadas = [];
-    document.getElementById("pantalla-carga").style.display = "none";
-    document.getElementById("pantalla-resultado").style.display = "none";
-    document.getElementById("pantalla-juego").style.display = "block";
     document.getElementById("formPuntaje").style.display = "none";
 
     const random = Math.floor(Math.random() * bancoPalabras.length);
@@ -38,13 +41,16 @@ function iniciarPartida() {
     puntajeActual = palabraActual.length * 10;
 
     document.getElementById("pistaTexto").innerText = pistaActual;
+    cambiarPantalla('pantalla-juego');
     actualizarGraficos();
     dibujarTeclado();
 }
 
 function actualizarGraficos() {
     document.getElementById("dibujoAhorcado").innerText = ahorcadoASCII[errores];
-    document.getElementById("vidasTexto").innerText = MAX_ERRORES - errores;
+    
+    // Genera corazones rojos vivos y negros vacíos según los errores
+    document.getElementById("vidasTexto").innerText = "❤️".repeat(MAX_ERRORES - errores) + "🖤".repeat(errores);
 
     let textoMostrar = "", victoria = true;
     for (let letra of palabraActual) {
@@ -53,8 +59,10 @@ function actualizarGraficos() {
     }
     
     document.getElementById("palabraTexto").innerText = textoMostrar;
-    if (victoria) finalizarJuego(true);
-    if (errores >= MAX_ERRORES) finalizarJuego(false);
+    
+    // Pequeño retraso para que el usuario alcance a ver la última letra antes de cambiar de pantalla
+    if (victoria) setTimeout(() => finalizarJuego(true), 300);
+    if (errores >= MAX_ERRORES) setTimeout(() => finalizarJuego(false), 300);
 }
 
 function dibujarTeclado() {
@@ -63,7 +71,7 @@ function dibujarTeclado() {
     "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("").forEach(letra => {
         const btn = document.createElement("button");
         btn.innerText = letra;
-        btn.classList.add("outline");
+        btn.classList.add("outline"); // Diseño base secundario
         btn.onclick = () => procesarLetra(letra, btn);
         contenedor.appendChild(btn);
     });
@@ -72,21 +80,32 @@ function dibujarTeclado() {
 function procesarLetra(letra, botonHTML) {
     botonHTML.disabled = true;
     letrasAdivinadas.push(letra);
+    
+    // En lugar de inyectar estilos sueltos, ahora asignamos clases CSS
     if (palabraActual.includes(letra)) {
-        botonHTML.style.backgroundColor = "green"; botonHTML.style.color = "white";
+        botonHTML.classList.remove("outline");
+        botonHTML.classList.add("acierto");
     } else {
-        botonHTML.style.backgroundColor = "red"; botonHTML.style.color = "white";
+        botonHTML.classList.remove("outline");
+        botonHTML.classList.add("error");
         errores++;
     }
     actualizarGraficos();
 }
 
 function finalizarJuego(gano) {
-    document.getElementById("pantalla-juego").style.display = "none";
-    document.getElementById("pantalla-resultado").style.display = "block";
+    cambiarPantalla('pantalla-resultado');
     document.getElementById("palabraRevelada").innerText = palabraActual;
-    document.getElementById("mensajeFinal").innerText = gano ? "¡Ganaste!" : "Game Over";
-    if (gano) document.getElementById("formPuntaje").style.display = "block";
+    
+    const mensajeFinal = document.getElementById("mensajeFinal");
+    if (gano) {
+        mensajeFinal.innerText = "¡Ganaste! 🎉";
+        mensajeFinal.style.color = "#2ea043"; // Verde
+        document.getElementById("formPuntaje").style.display = "block";
+    } else {
+        mensajeFinal.innerText = "Game Over 💀";
+        mensajeFinal.style.color = "#da3633"; // Rojo
+    }
 }
 
 document.getElementById("formPuntaje").addEventListener("submit", (e) => {
@@ -98,7 +117,7 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
         method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jugador: document.getElementById("nombreJugador").value, puntaje: puntajeActual })
     }).then(() => {
-        alert("¡Puntaje guardado!");
+        alert("¡Puntaje guardado con éxito!");
         document.getElementById("formPuntaje").style.display = "none";
     }).finally(() => {
         btnGuardar.disabled = false; btnGuardar.innerText = "Guardar Puntaje";
