@@ -1,44 +1,109 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahorcado Web Serverless</title>
+    <title>El Ahorcado Web</title>
+    <!-- PicoCSS para estilos base limpios -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
-        .palabra-oculta { letter-spacing: 10px; font-size: 2rem; text-align: center; margin: 1rem 0; font-family: monospace; }
-        .teclado { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 500px; margin: 0 auto; }
-        .teclado button { width: 45px; height: 45px; padding: 0; text-align: center; font-weight: bold; }
-        .arte-ascii { font-family: monospace; white-space: pre; background: #f4f4f4; padding: 1rem; border-radius: 8px; text-align: center; display: inline-block; color: #333; }
-        .contenedor-juego { text-align: center; margin-top: 2rem; }
+        /* Centrado general y fondo oscuro */
+        body { display: flex; align-items: center; min-height: 100vh; background-color: #11191f; }
+        .contenedor-juego { max-width: 600px; width: 100%; margin: auto; }
+        
+        /* Sistema de pantallas con animación suave */
+        .pantalla { display: none; }
+        .pantalla.activa { display: block; animation: fadeIn 0.4s ease-in-out; }
+
+        /* Estilo tipo consola para el muñeco ASCII */
+        .arte-ascii { 
+            font-family: 'Courier New', Courier, monospace; 
+            white-space: pre; 
+            background: #0d1117; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            text-align: center; 
+            color: #2ea043; /* Verde terminal */
+            font-size: 1.2rem;
+            line-height: 1.2;
+            border: 1px solid #30363d;
+            min-height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Tipografía grande y espaciada para la palabra */
+        .palabra-oculta { 
+            letter-spacing: 12px; 
+            font-size: 2.5rem; 
+            text-align: center; 
+            margin: 1.5rem 0; 
+            font-family: monospace;
+            font-weight: bold;
+            color: #e6edf3;
+        }
+
+        /* Diseño del teclado */
+        .teclado { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .teclado button { 
+            width: 48px; 
+            height: 48px; 
+            padding: 0; 
+            font-size: 1.2rem; 
+            font-weight: bold; 
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        /* Efectos al presionar botones */
+        .teclado button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+        .teclado button.acierto { background-color: #2ea043; border-color: #2ea043; color: white; opacity: 1; }
+        .teclado button.error { background-color: #da3633; border-color: #da3633; color: white; opacity: 0.4; }
+        
+        /* Barra superior de información */
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.1rem;}
+        .vidas { font-size: 1.2rem;}
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <main class="container contenedor-juego">
-        <h1>El Ahorcado</h1>
-        
-        <div id="pantalla-carga"><p aria-busy="true">Conectando con Google Sheets...</p></div>
-
-        <div id="pantalla-juego" style="display: none;">
-            <p><strong>Pista:</strong> <span id="pistaTexto"></span></p>
-            <div class="arte-ascii" id="dibujoAhorcado"></div>
-            <div class="palabra-oculta" id="palabraTexto"></div>
-            <p>Vidas restantes: <strong id="vidasTexto">6</strong></p>
-            <div class="teclado" id="tecladoContenedor"></div>
-        </div>
-
-        <div id="pantalla-resultado" style="display: none;">
-            <h2 id="mensajeFinal"></h2>
-            <p>La palabra era: <strong id="palabraRevelada"></strong></p>
+        <!-- El contenedor 'article' de PicoCSS le da un diseño de "tarjeta" elevado -->
+        <article>
+            <h1 style="text-align: center; margin-bottom: 1.5rem;">💀 El Ahorcado</h1>
             
-            <form id="formPuntaje" style="display: none; max-width: 400px; margin: 0 auto;">
-                <label for="nombreJugador">¡Nuevo Récord! Ingresa tu nombre:</label>
-                <input type="text" id="nombreJugador" required>
-                <button type="submit" id="btnGuardar">Guardar Puntaje</button>
-            </form>
+            <div id="pantalla-carga" class="pantalla activa">
+                <p aria-busy="true" style="text-align: center;">Conectando con la base de datos...</p>
+            </div>
 
-            <button class="secondary" onclick="iniciarPartida()" style="margin-top: 1rem;">Jugar de nuevo</button>
-        </div>
+            <div id="pantalla-juego" class="pantalla">
+                <div class="info-bar">
+                    <span><strong>Pista:</strong> <span id="pistaTexto" style="color: #58a6ff;"></span></span>
+                    <span>Vidas: <span id="vidasTexto" class="vidas">❤️❤️❤️❤️❤️❤️</span></span>
+                </div>
+                
+                <div class="arte-ascii" id="dibujoAhorcado"></div>
+                
+                <div class="palabra-oculta" id="palabraTexto"></div>
+                
+                <div class="teclado" id="tecladoContenedor"></div>
+            </div>
+
+            <div id="pantalla-resultado" class="pantalla" style="text-align: center;">
+                <h2 id="mensajeFinal" style="font-size: 2.5rem;"></h2>
+                <p style="font-size: 1.2rem;">La palabra era: <strong id="palabraRevelada" style="color: #58a6ff;"></strong></p>
+                
+                <form id="formPuntaje" style="display: none; max-width: 300px; margin: 2rem auto;">
+                    <label for="nombreJugador">¡Nuevo Récord!</label>
+                    <input type="text" id="nombreJugador" placeholder="Ingresa tu nombre" required>
+                    <button type="submit" id="btnGuardar">Guardar Puntaje</button>
+                </form>
+
+                <button class="secondary outline" onclick="iniciarPartida()" style="margin-top: 1rem; max-width: 300px;">Jugar de nuevo</button>
+            </div>
+        </article>
     </main>
     <script src="script.js"></script>
 </body>
