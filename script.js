@@ -1,68 +1,106 @@
-// ⚠️ REEMPLAZA ESTA URL POR LA DE TU NUEVA IMPLEMENTACIÓN DE APPS SCRIPT
+// ⚠️ PEGA AQUÍ LA NUEVA URL DE APPS SCRIPT
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
-// Cargar datos al inicio y configurar el envío
-document.addEventListener("DOMContentLoaded", cargarDatos);
-document.getElementById("myForm").addEventListener("submit", enviarDatos);
+let bancoPalabras = [], palabraActual = "", pistaActual = "", letrasAdivinadas = [], errores = 0, puntajeActual = 0;
+const MAX_ERRORES = 6;
 
-function cargarDatos() {
-    const container = document.getElementById("data-container");
-    container.innerHTML = "<p>Cargando datos desde el servidor...</p>";
+const ahorcadoASCII = [
+  "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========="
+];
 
+document.addEventListener("DOMContentLoaded", () => {
     fetch(WEB_APP_URL)
         .then(response => response.json())
         .then(data => {
-            if (!data || data.length === 0) {
-                container.innerHTML = "<p>No hay registros todavía.</p>";
-                return;
-            }
-            
-            let html = "<ul>";
-            // .reverse() muestra el mensaje más nuevo arriba
-            data.reverse().forEach(item => {
-                html += `
-                    <li style="margin-bottom: 1rem;">
-                        <strong>${item.nombre}</strong>: ${item.mensaje} <br>
-                        <small style="color:gray;">${item.fecha}</small>
-                    </li>`;
-            });
-            html += "</ul>";
-            container.innerHTML = html;
+            if (data.error || data.length === 0) return document.getElementById("pantalla-carga").innerHTML = "<p>Error: Base de datos vacía.</p>";
+            bancoPalabras = data;
+            iniciarPartida();
         })
-        .catch(error => {
-            console.error("Error Fetch:", error);
-            container.innerHTML = "<p style='color:red;'>Error al cargar la base de datos.</p>";
-        });
+        .catch(() => document.getElementById("pantalla-carga").innerHTML = "<p>Error de conexión.</p>");
+});
+
+function iniciarPartida() {
+    errores = 0; letrasAdivinadas = [];
+    document.getElementById("pantalla-carga").style.display = "none";
+    document.getElementById("pantalla-resultado").style.display = "none";
+    document.getElementById("pantalla-juego").style.display = "block";
+    document.getElementById("formPuntaje").style.display = "none";
+
+    const random = Math.floor(Math.random() * bancoPalabras.length);
+    palabraActual = bancoPalabras[random].palabra;
+    pistaActual = bancoPalabras[random].pista;
+    puntajeActual = palabraActual.length * 10;
+
+    document.getElementById("pistaTexto").innerText = pistaActual;
+    actualizarGraficos();
+    dibujarTeclado();
 }
 
-function enviarDatos(e) {
-    e.preventDefault(); 
+function actualizarGraficos() {
+    document.getElementById("dibujoAhorcado").innerText = ahorcadoASCII[errores];
+    document.getElementById("vidasTexto").innerText = MAX_ERRORES - errores;
+
+    let textoMostrar = "", victoria = true;
+    for (let letra of palabraActual) {
+        if (letrasAdivinadas.includes(letra)) { textoMostrar += letra; } 
+        else { textoMostrar += "_"; victoria = false; }
+    }
     
-    const btnSubmit = document.getElementById("btnSubmit");
-    btnSubmit.disabled = true; 
-    btnSubmit.textContent = "Enviando..."; 
+    document.getElementById("palabraTexto").innerText = textoMostrar;
+    if (victoria) finalizarJuego(true);
+    if (errores >= MAX_ERRORES) finalizarJuego(false);
+}
 
-    const formData = {
-        nombre: document.getElementById("nombre").value,
-        mensaje: document.getElementById("mensaje").value
-    };
-
-    fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors", 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
-    })
-    .then(() => {
-        document.getElementById("myForm").reset(); 
-        cargarDatos(); 
-    })
-    .catch(error => {
-        console.error("Error POST:", error);
-        alert("Ocurrió un error al enviar el dato.");
-    })
-    .finally(() => {
-        btnSubmit.disabled = false;
-        btnSubmit.textContent = "Enviar datos";
+function dibujarTeclado() {
+    const contenedor = document.getElementById("tecladoContenedor");
+    contenedor.innerHTML = "";
+    "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("").forEach(letra => {
+        const btn = document.createElement("button");
+        btn.innerText = letra;
+        btn.classList.add("outline");
+        btn.onclick = () => procesarLetra(letra, btn);
+        contenedor.appendChild(btn);
     });
 }
+
+function procesarLetra(letra, botonHTML) {
+    botonHTML.disabled = true;
+    letrasAdivinadas.push(letra);
+    if (palabraActual.includes(letra)) {
+        botonHTML.style.backgroundColor = "green"; botonHTML.style.color = "white";
+    } else {
+        botonHTML.style.backgroundColor = "red"; botonHTML.style.color = "white";
+        errores++;
+    }
+    actualizarGraficos();
+}
+
+function finalizarJuego(gano) {
+    document.getElementById("pantalla-juego").style.display = "none";
+    document.getElementById("pantalla-resultado").style.display = "block";
+    document.getElementById("palabraRevelada").innerText = palabraActual;
+    document.getElementById("mensajeFinal").innerText = gano ? "¡Ganaste!" : "Game Over";
+    if (gano) document.getElementById("formPuntaje").style.display = "block";
+}
+
+document.getElementById("formPuntaje").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const btnGuardar = document.getElementById("btnGuardar");
+    btnGuardar.disabled = true; btnGuardar.innerText = "Guardando...";
+
+    fetch(WEB_APP_URL, {
+        method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jugador: document.getElementById("nombreJugador").value, puntaje: puntajeActual })
+    }).then(() => {
+        alert("¡Puntaje guardado!");
+        document.getElementById("formPuntaje").style.display = "none";
+    }).finally(() => {
+        btnGuardar.disabled = false; btnGuardar.innerText = "Guardar Puntaje";
+    });
+});
