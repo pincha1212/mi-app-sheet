@@ -1,5 +1,8 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
+// ⚠️ PEGA AQUÍ TU URL DE APPS SCRIPT
+const WEB_APP_URL = "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
+
 // --- ESTADOS LOCALES ---
 let bancoPalabras = [], rankingGlobal = [];
 let palabraActual = "", pistaActual = "", ultimaPalabra = "";
@@ -111,10 +114,24 @@ function abrirStats() {
     cambiarPantalla('pantalla-stats');
 }
 
+// CORRECCIÓN: Unifica el reinicio de estadísticas globales y la lista de partidas recientes.
 function borrarHistorial() {
-    if(confirm("¿Seguro que deseas borrar tu historial de partidas? (Las estadísticas globales se mantendrán)")) {
+    if(confirm("¿Seguro que deseas reiniciar todas tus estadísticas y borrar el historial de partidas?")) {
+        
+        // 1. Reiniciar array historial
         historial = [];
         localStorage.setItem("ahorcadoHistorial", JSON.stringify(historial));
+        
+        // 2. Reiniciar objeto de estadísticas globales
+        stats = { jugadas: 0, ganadas: 0, perdidas: 0, mejorPuntaje: 0, mejorRacha: 0, puntosTotales: 0 };
+        localStorage.setItem("ahorcadoStats", JSON.stringify(stats));
+        
+        // 3. Reiniciar Récord Personal
+        localStorage.setItem("ahorcadoRecord", "0");
+        document.getElementById("menu-record").innerText = "0";
+        document.getElementById("ui-record").innerText = "0";
+
+        // 4. Volver a pintar la pantalla para reflejar los ceros
         abrirStats();
     }
 }
@@ -132,7 +149,7 @@ function guardarStatsFinales(gano) {
         resultado: gano ? "Victoria" : "Derrota",
         puntaje: puntajeAcumulado,
         palabra: palabraActual,
-        racha: rachaActual - (gano ? 1 : 0) // Registrar la racha con la que se ganó esta ronda
+        racha: rachaActual - (gano ? 1 : 0)
     });
     if(historial.length > 20) historial.pop();
     localStorage.setItem("ahorcadoHistorial", JSON.stringify(historial));
@@ -207,7 +224,6 @@ function procesarLetra(letra, botonHTML, event) {
 }
 
 function actualizarGraficos() {
-    // Si config.vidas > 6, mostramos el estado máximo de ASCII disponible
     document.getElementById("dibujoAhorcado").innerText = ahorcadoASCII[Math.min(errores, 6)];
     
     let vidasRestantes = Math.max(0, config.vidas - errores);
@@ -261,7 +277,6 @@ function finalizarJuego(gano) {
 
     puntajeAcumulado += puntosPalabraActual + bonusVidas + bonusRacha;
     
-    // Guardar estadísticas e historial
     guardarStatsFinales(gano);
 
     document.getElementById("res-letras").innerText = puntosPalabraActual;
@@ -428,7 +443,7 @@ function importarCSV(event) {
             const partes = lineas[i].split(',');
             if(partes.length >= 2) {
                 const pal = partes[0].trim().toUpperCase();
-                const pis = partes.slice(1).join(',').trim(); // Por si hay comas en la pista
+                const pis = partes.slice(1).join(',').trim(); 
                 if(pal && pis) {
                     if(bancoPalabras.some(p => p.palabra === pal) || nuevas.some(n => n[0] === pal)) duplicadas++;
                     else nuevas.push([pal, pis]);
@@ -439,11 +454,9 @@ function importarCSV(event) {
         const msg = `Encontradas: ${lineas.length - 1}\nNuevas: ${nuevas.length}\nDuplicadas: ${duplicadas}\nInválidas: ${invalidas}\n\n¿Importar las nuevas?`;
         if(nuevas.length > 0 && confirm(msg)) {
             setSyncStatus('syncing');
-            // Agregamos localmente
             nuevas.forEach(n => bancoPalabras.push({palabra: n[0], pista: n[1]}));
             guardarCacheLocal(); renderizarTablaAdmin();
             
-            // Envío en bloque
             fetch(WEB_APP_URL, {
                 method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "importWords", words: nuevas })
@@ -452,5 +465,5 @@ function importarCSV(event) {
         } else if (nuevas.length === 0) { alert("No se encontraron palabras nuevas válidas para importar."); }
     };
     reader.readAsText(file);
-    event.target.value = ''; // Limpiar input file
+    event.target.value = ''; 
 }
