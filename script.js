@@ -19,44 +19,65 @@ function cambiarPantalla(idPantalla) {
     document.getElementById(idPantalla).classList.add('activa');
 }
 
-// 1. CARGA INICIAL (Ahora recibe palabras + ranking)
+// 1. CARGA INICIAL (Ahora con Sistema de Caché LocalStorage)
 document.addEventListener("DOMContentLoaded", () => {
+    const datosCacheados = localStorage.getItem("ahorcadoData");
+
+    if (datosCacheados) {
+        // A) Si ya hay datos guardados, arranca instantáneamente
+        const data = JSON.parse(datosCacheados);
+        bancoPalabras = data.palabras;
+        dibujarRanking(data.ranking);
+        cambiarPantalla('pantalla-inicio');
+        
+        // B) Y actualiza el ranking en segundo plano silenciosamente
+        actualizarDatosSilencioso();
+    } else {
+        // C) Si es la primera vez que entra, hace la descarga normal
+        descargarDatosCompletos();
+    }
+});
+
+function descargarDatosCompletos() {
     fetch(WEB_APP_URL)
         .then(response => response.json())
         .then(data => {
-            if (data.error || !data.palabras || data.palabras.length === 0) {
-                return document.getElementById("pantalla-carga").innerHTML = "<p style='text-align:center;'>Error al cargar base de datos.</p>";
-            }
+            if (data.error || !data.palabras || data.palabras.length === 0) throw new Error("Base vacía");
             
-            bancoPalabras = data.palabras; // Guardamos las palabras
-            dibujarRanking(data.ranking);  // Dibujamos la tabla
-            
-            // En lugar de arrancar el juego de golpe, vamos al menú principal
+            localStorage.setItem("ahorcadoData", JSON.stringify(data)); // Guarda en caché
+            bancoPalabras = data.palabras;
+            dibujarRanking(data.ranking);
             cambiarPantalla('pantalla-inicio');
         })
-        .catch(() => document.getElementById("pantalla-carga").innerHTML = "<p style='text-align:center; color:red;'>Error de red.</p>");
-});
+        .catch(() => document.getElementById("pantalla-carga").innerHTML = "<p style='text-align:center; color:red;'>Error de conexión.</p>");
+}
 
-// Función para pintar la tabla
+function actualizarDatosSilencioso() {
+    fetch(WEB_APP_URL)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error && data.palabras) {
+                localStorage.setItem("ahorcadoData", JSON.stringify(data)); // Renueva caché
+                dibujarRanking(data.ranking); // Pinta nuevos récords si alguien acaba de jugar
+            }
+        }).catch(err => console.log("Fallo silencioso omitido", err));
+}
+
+function volverAlMenu() {
+    cambiarPantalla('pantalla-inicio');
+    actualizarDatosSilencioso(); // Trae el ranking actualizado sin recargar la web
+}
+
 function dibujarRanking(ranking) {
     const tabla = document.getElementById("tabla-ranking");
     tabla.innerHTML = "";
-    
     if (ranking.length === 0) {
         tabla.innerHTML = "<tr><td colspan='3'>Aún no hay récords. ¡Sé el primero!</td></tr>";
         return;
     }
-    
     const medallas = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
-    
     ranking.forEach((registro, index) => {
-        tabla.innerHTML += `
-            <tr>
-                <td>${medallas[index]}</td>
-                <td>${registro.jugador}</td>
-                <td>${registro.puntaje}</td>
-            </tr>
-        `;
+        tabla.innerHTML += `<tr><td>${medallas[index]}</td><td>${registro.jugador}</td><td>${registro.puntaje}</td></tr>`;
     });
 }
 
@@ -114,7 +135,6 @@ function procesarLetra(letra, botonHTML) {
         botonHTML.classList.remove("outline");
         botonHTML.classList.add("error");
         errores++;
-        // Restar puntos por cada error, sin que baje de 0
         puntajeActual = Math.max(0, puntajeActual - 5); 
     }
     actualizarGraficos();
@@ -148,8 +168,7 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
     }).then(() => {
         alert("¡Puntaje guardado con éxito!");
         document.getElementById("formPuntaje").style.display = "none";
-        // Recargamos la página para que vuelva al menú principal y actualice el ranking
-        setTimeout(() => location.reload(), 1000);
+        volverAlMenu(); // Llamamos a la nueva función
     }).finally(() => {
         btnGuardar.disabled = false; btnGuardar.innerText = "Guardar Puntaje";
     });
