@@ -1,8 +1,5 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
-// ⚠️ PEGA AQUÍ TU URL DE APPS SCRIPT
-const WEB_APP_URL = "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
-
 // --- ESTADOS Y VARIABLES ---
 let bancoPalabras = [], rankingGlobal = [];
 let palabraActual = "", pistaActual = "", ultimaPalabra = "";
