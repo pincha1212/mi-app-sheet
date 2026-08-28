@@ -3,33 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplicación Web - Base de Datos</title>
+    <title>Ahorcado Web Serverless</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .palabra-oculta { letter-spacing: 10px; font-size: 2rem; text-align: center; margin: 1rem 0; font-family: monospace; }
+        .teclado { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 500px; margin: 0 auto; }
+        .teclado button { width: 45px; height: 45px; padding: 0; text-align: center; font-weight: bold; }
+        .arte-ascii { font-family: monospace; white-space: pre; background: #f4f4f4; padding: 1rem; border-radius: 8px; text-align: center; display: inline-block; color: #333; }
+        .contenedor-juego { text-align: center; margin-top: 2rem; }
+    </style>
 </head>
 <body>
-    <main class="container">
-        <header>
-            <h1>Sistema de Registro</h1>
-        </header>
+    <main class="container contenedor-juego">
+        <h1>El Ahorcado</h1>
         
-        <section>
-            <form id="myForm">
-                <label for="nombre">Nombre:</label>
-                <input type="text" id="nombre" placeholder="Escribe tu nombre" required>
+        <div id="pantalla-carga"><p aria-busy="true">Conectando con Google Sheets...</p></div>
 
-                <label for="mensaje">Mensaje:</label>
-                <textarea id="mensaje" placeholder="Escribe tu mensaje" required></textarea>
+        <div id="pantalla-juego" style="display: none;">
+            <p><strong>Pista:</strong> <span id="pistaTexto"></span></p>
+            <div class="arte-ascii" id="dibujoAhorcado"></div>
+            <div class="palabra-oculta" id="palabraTexto"></div>
+            <p>Vidas restantes: <strong id="vidasTexto">6</strong></p>
+            <div class="teclado" id="tecladoContenedor"></div>
+        </div>
 
-                <button type="submit" id="btnSubmit">Enviar datos</button>
+        <div id="pantalla-resultado" style="display: none;">
+            <h2 id="mensajeFinal"></h2>
+            <p>La palabra era: <strong id="palabraRevelada"></strong></p>
+            
+            <form id="formPuntaje" style="display: none; max-width: 400px; margin: 0 auto;">
+                <label for="nombreJugador">¡Nuevo Récord! Ingresa tu nombre:</label>
+                <input type="text" id="nombreJugador" required>
+                <button type="submit" id="btnGuardar">Guardar Puntaje</button>
             </form>
-        </section>
-        
-        <hr>
-        
-        <section>
-            <h2>Registros Guardados</h2>
-            <div id="data-container">Cargando datos...</div>
-        </section>
+
+            <button class="secondary" onclick="iniciarPartida()" style="margin-top: 1rem;">Jugar de nuevo</button>
+        </div>
     </main>
     <script src="script.js"></script>
 </body>
