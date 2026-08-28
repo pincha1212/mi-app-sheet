@@ -44,7 +44,17 @@
         .admin-nav button { flex: 1; padding: 0.5rem; font-size: 0.9rem; }
         .sec-admin { display: none; }
         .sec-admin.activa { display: block; animation: fadeIn 0.2s ease; }
-        #sync-status { font-size: 0.85rem; font-weight: bold; display: block; text-align: right; margin-bottom: 1rem; transition: color 0.3s;}
+        
+        /* Mejoras Tabla Admin */
+        .tabla-admin { table-layout: fixed; width: 100%; font-size: 0.9rem; }
+        .tabla-admin td, .tabla-admin th { vertical-align: middle; }
+        .col-pista { word-wrap: break-word; white-space: normal; }
+        
+        /* Toast Notification Admin */
+        .toast-admin { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 0.8rem 1.5rem; border-radius: 30px; font-weight: bold; color: white; opacity: 0; transition: all 0.3s ease; z-index: 1000; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .toast-admin.mostrar { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-admin.success { background-color: #238636; border: 1px solid #2ea043; }
+        .toast-admin.error { background-color: #da3633; border: 1px solid #b62324; }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.3); } }
@@ -126,8 +136,10 @@
 
             <!-- PANTALLA ADMINISTRACIÓN -->
             <div id="pantalla-admin" class="pantalla">
-                <h2 style="text-align: center; margin-bottom: 1rem;">Panel de Administración</h2>
-                <span id="sync-status" style="color: #2ea043;">✔️ Datos sincronizados</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">Panel de Administración</h2>
+                    <span id="sync-status" style="color: #2ea043; font-size: 0.85rem; font-weight: bold;">✔️ Sincronizado</span>
+                </div>
                 
                 <nav class="admin-nav">
                     <button id="nav-palabras" onclick="cambiarSeccionAdmin('palabras')" class="primary">Banco de Palabras</button>
@@ -135,7 +147,9 @@
                 </nav>
 
                 <div id="sec-admin-palabras" class="sec-admin activa">
-                    <form id="formAdminPalabra" style="background: #0d1117; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 2rem;">
+                    <!-- Formulario Agregar/Editar -->
+                    <form id="formAdminPalabra" style="background: #0d1117; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 1.5rem;">
+                        <h4 id="titulo-form-admin" style="margin-bottom: 1rem;">✨ Agregar Nueva Palabra</h4>
                         <div class="grid">
                             <label>Palabra:
                                 <input type="text" id="admin-palabra" required autocomplete="off" placeholder="Ej: MONTAÑA">
@@ -146,13 +160,26 @@
                         </div>
                         <div class="grid" style="margin-top: 1rem;">
                             <button type="submit" id="admin-btn-guardar">Agregar Palabra</button>
-                            <button type="button" id="admin-btn-cancelar" class="secondary outline" style="display:none;" onclick="cancelarEdicionAdmin()">Cancelar Edición</button>
+                            <button type="button" id="admin-btn-cancelar" class="secondary outline" style="display:none;" onclick="cancelarEdicionAdmin()">Cancelar</button>
                         </div>
                     </form>
 
+                    <!-- Barra de Búsqueda y Contador -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
+                        <span id="contador-palabras" style="font-weight: bold; color: #58a6ff;">0 palabras en el banco</span>
+                        <input type="search" id="admin-buscador" placeholder="Buscar palabra o pista..." style="margin: 0; max-width: 300px; flex-grow: 1;">
+                    </div>
+
+                    <!-- Tabla de Palabras -->
                     <figure>
-                        <table role="grid" style="font-size: 0.9rem;">
-                            <thead><tr><th>Palabra</th><th>Pista</th><th style="width:120px;">Acciones</th></tr></thead>
+                        <table role="grid" class="tabla-admin">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Palabra</th>
+                                    <th style="width: 50%;">Pista</th>
+                                    <th style="width: 20%; text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
                             <tbody id="tabla-admin-palabras"></tbody>
                         </table>
                     </figure>
@@ -166,8 +193,11 @@
                     <button class="secondary outline" onclick="volverAlMenu()" style="max-width: 300px;">Volver al Juego</button>
                 </div>
             </div>
-
+            
         </article>
+        
+        <!-- Toast Notification para Admin -->
+        <div id="admin-toast" class="toast-admin"></div>
     </main>
     <script src="script.js"></script>
 </body>
