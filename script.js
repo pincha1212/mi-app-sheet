@@ -300,7 +300,6 @@ function finalizarJuego(gano) {
     document.getElementById("puntosFinales").innerText = puntajeAcumulado;
 
     msgRecord.style.display = "none";
-    // Corrección Récord: Solo si supera estrictamente el registro anterior
     if (puntajeAcumulado > recordAnteriorLocal && puntajeAcumulado > 0) {
         msgRecord.style.display = "block";
     }
@@ -314,6 +313,7 @@ function mostrarFormularioPuntaje() {
     document.getElementById("formPuntaje").style.display = "block";
 }
 
+// CORRECCIÓN: Asegurarse de que el ranking se actualice en la UI inmediatamente después de guardar
 document.getElementById("formPuntaje").addEventListener("submit", (e) => {
     e.preventDefault();
     const btn = document.getElementById("btnGuardar");
@@ -322,10 +322,26 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
     fetchJSONSeguro({ action: "saveScore", jugador: document.getElementById("nombreJugador").value, puntaje: puntajeAcumulado })
     .then(data => {
         if(data.status === 'success') {
-            alert("¡Puntaje guardado con éxito!"); volverAlMenu();
+            btn.innerText = "Actualizando ranking...";
+            // Obligar al cliente a descargar los datos más recientes del ranking
+            return fetch(WEB_APP_URL).then(r => r.json());
         } else throw new Error(data.message || "Error del servidor");
     })
-    .catch(() => alert("Error de conexión. Tu récord se mantiene localmente."))
+    .then(data => {
+        // Actualizar el estado global con el nuevo ranking que incluye el registro recién agregado
+        if (data && !data.error && data.ranking) {
+            bancoPalabras = data.palabras; 
+            rankingGlobal = data.ranking;
+            guardarCacheLocal(); 
+            dibujarRankingInicio(); // Refrescar UI del Top 5
+        }
+        alert("¡Puntaje guardado con éxito!"); 
+        volverAlMenu();
+    })
+    .catch(() => {
+        alert("Error de conexión. Tu récord se mantiene localmente.");
+        volverAlMenu();
+    })
     .finally(() => { btn.disabled = false; btn.innerText = "Guardar Puntaje"; });
 });
 
@@ -492,7 +508,6 @@ function importarCSV(event) {
                 const pal = linea.substring(0, idx).trim().toUpperCase();
                 let pis = linea.substring(idx + 1).trim();
                 
-                // Limpieza básica si Excel metió comillas dobles
                 if (pis.startsWith('"') && pis.endsWith('"')) pis = pis.substring(1, pis.length - 1);
                 
                 if(pal && pis) {
