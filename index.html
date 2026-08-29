@@ -124,7 +124,6 @@
 
                 <div style="display: flex; justify-content: space-between; margin-top: 2rem;">
                     <button class="outline secondary" onclick="volverAlMenu()" style="width: auto;">Volver al Menú</button>
-                    <!-- CORRECCIÓN: Botón modificado para reflejar la nueva acción global -->
                     <button class="outline" style="color: #da3633; border-color: #da3633; width: auto;" onclick="borrarHistorial()">🗑️ Borrar Estadísticas</button>
                 </div>
             </div>
@@ -168,7 +167,7 @@
 
                 <form id="formPuntaje" style="display: none; max-width: 300px; margin: 2rem auto; border-top: 1px solid #30363d; padding-top: 1.5rem;">
                     <label for="nombreJugador">Registra tu puntaje en el ranking:</label>
-                    <input type="text" id="nombreJugador" placeholder="Ingresa tu nombre" required>
+                    <input type="text" id="nombreJugador" placeholder="Ingresa tu nombre" maxlength="20" required>
                     <button type="submit" id="btnGuardar">Guardar Puntaje</button>
                     <a href="#" onclick="volverAlMenu()" style="display: block; margin-top: 1rem; color: #8b949e;">Cancelar y volver al menú</a>
                 </form>
@@ -192,8 +191,13 @@
                     <form id="formAdminPalabra" style="background: #0d1117; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 1.5rem;">
                         <h4 id="titulo-form-admin" style="margin-bottom: 1rem;">✨ Agregar Nueva Palabra</h4>
                         <div class="grid">
-                            <label>Palabra: <input type="text" id="admin-palabra" required autocomplete="off"></label>
-                            <label>Pista: <input type="text" id="admin-pista" required autocomplete="off"></label>
+                            <label>Palabra: 
+                                <input type="text" id="admin-palabra" required autocomplete="off" maxlength="25">
+                                <small style="color: #8b949e; font-size: 0.75rem;">Solo letras (A-Z, Ñ). Sin espacios ni tildes.</small>
+                            </label>
+                            <label>Pista: 
+                                <input type="text" id="admin-pista" required autocomplete="off" maxlength="60">
+                            </label>
                         </div>
                         <div class="grid" style="margin-top: 1rem;">
                             <button type="submit" id="admin-btn-guardar">Agregar</button>
@@ -235,11 +239,11 @@
                     <form id="formAdminConfig">
                         <div class="grid">
                             <label>Vidas Iniciales: <input type="number" id="cfg-vidas" min="1" max="10" required></label>
-                            <label>Puntos por Letra: <input type="number" id="cfg-puntos" min="1" required></label>
+                            <label>Puntos por Letra: <input type="number" id="cfg-puntos" min="1" max="100" required></label>
                         </div>
                         <div class="grid">
-                            <label>Penalización Error: <input type="number" id="cfg-penalizacion" min="0" required></label>
-                            <label>Multiplicador Máx: <input type="number" id="cfg-mult" min="1" required></label>
+                            <label>Penalización Error: <input type="number" id="cfg-penalizacion" min="0" max="50" required></label>
+                            <label>Multiplicador Máx: <input type="number" id="cfg-mult" min="1" max="10" required></label>
                         </div>
                         <button type="submit" style="margin-top: 1rem;">Guardar Configuración</button>
                     </form>
