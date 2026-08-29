@@ -1,10 +1,13 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyg5CeIFMyuiRiApFVENzfCl0jTIt8pu4rlARxIs8kdkmsgUTQMY7sSASl5wxyVkAMu/exec";
 
-// --- ESTADOS LOCALES ---
+// --- ESTADOS LOCALES Y PROTECCIÓN ---
 let bancoPalabras = [], rankingGlobal = [];
 let palabraActual = "", pistaActual = "", ultimaPalabra = "";
 let letrasAdivinadas = [], errores = 0;
 let puntajeAcumulado = 0, puntosPalabraActual = 0, rachaActual = 0, multiplicador = 1;
+
+let partidaEnCurso = false; // Flag para evitar dobles finalizaciones
+let recordAnteriorLocal = 0; // Captura el récord al iniciar ronda
 
 // Configuración & Stats persistentes
 let config = JSON.parse(localStorage.getItem("ahorcadoConfig")) || { vidas: 6, puntosAcierto: 10, penalizacion: 5, maxMult: 4 };
@@ -13,6 +16,8 @@ let historial = JSON.parse(localStorage.getItem("ahorcadoHistorial")) || [];
 
 // Estado Admin
 let modoEdicionAdmin = false, palabraOriginalEditando = "", busquedaAdmin = "";
+
+const regexPalabraValida = /^[A-ZÑ]+$/; // Solo admite caracteres disponibles en el teclado del juego
 
 const ahorcadoASCII = [
   "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
@@ -24,17 +29,30 @@ const ahorcadoASCII = [
   "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========="
 ];
 
-// --- INICIALIZACIÓN ---
+// --- FUNCIONES UTILITARIAS ---
 function cambiarPantalla(idPantalla) {
     document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
     document.getElementById(idPantalla).classList.add('activa');
 }
 
+function validarPalabra(palabra) {
+    return regexPalabraValida.test(palabra);
+}
+
+// Custom Fetch (Envía JSON como texto plano para evitar preflight OPTIONS de CORS y recibir respuesta limpia)
+function fetchJSONSeguro(payload) {
+    return fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+    }).then(res => res.json());
+}
+
+// --- INICIALIZACIÓN ---
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("menu-record").innerText = stats.mejorPuntaje;
     document.getElementById("admin-buscador").addEventListener("input", e => { busquedaAdmin = e.target.value.trim().toLowerCase(); renderizarTablaAdmin(); });
     
-    // Cargar config en formulario admin
     document.getElementById("cfg-vidas").value = config.vidas;
     document.getElementById("cfg-puntos").value = config.puntosAcierto;
     document.getElementById("cfg-penalizacion").value = config.penalizacion;
@@ -72,7 +90,7 @@ function actualizarDatosSilencioso() {
                 renderizarTablaAdmin(); renderizarRankingAdmin();
             }
         }
-    }).catch(err => console.log("Caché omitido"));
+    }).catch(err => console.log("Caché omitido", err));
 }
 
 function dibujarRankingInicio() {
@@ -111,32 +129,26 @@ function abrirStats() {
     cambiarPantalla('pantalla-stats');
 }
 
-// CORRECCIÓN: Unifica el reinicio de estadísticas globales y la lista de partidas recientes.
 function borrarHistorial() {
     if(confirm("¿Seguro que deseas reiniciar todas tus estadísticas y borrar el historial de partidas?")) {
-        
-        // 1. Reiniciar array historial
         historial = [];
         localStorage.setItem("ahorcadoHistorial", JSON.stringify(historial));
-        
-        // 2. Reiniciar objeto de estadísticas globales
         stats = { jugadas: 0, ganadas: 0, perdidas: 0, mejorPuntaje: 0, mejorRacha: 0, puntosTotales: 0 };
         localStorage.setItem("ahorcadoStats", JSON.stringify(stats));
-        
-        // 3. Reiniciar Récord Personal
         localStorage.setItem("ahorcadoRecord", "0");
         document.getElementById("menu-record").innerText = "0";
         document.getElementById("ui-record").innerText = "0";
-
-        // 4. Volver a pintar la pantalla para reflejar los ceros
-        abrirStats();
+        abrirStats(); 
     }
 }
 
 function guardarStatsFinales(gano) {
+    recordAnteriorLocal = stats.mejorPuntaje; // Captura antes de actualizar
+
     stats.jugadas++;
     if(gano) stats.ganadas++; else stats.perdidas++;
     stats.puntosTotales += puntajeAcumulado;
+    
     if(puntajeAcumulado > stats.mejorPuntaje) stats.mejorPuntaje = puntajeAcumulado;
     if(rachaActual > stats.mejorRacha) stats.mejorRacha = rachaActual;
     localStorage.setItem("ahorcadoStats", JSON.stringify(stats));
@@ -154,7 +166,6 @@ function guardarStatsFinales(gano) {
 
 // --- JUEGO ---
 function iniciarPartida(nuevaPartida = false) {
-    // Aplicar Dificultad
     const dif = document.getElementById("select-dificultad").value;
     let palabrasValidas = bancoPalabras;
     if (dif === 'facil') palabrasValidas = bancoPalabras.filter(p => p.palabra.length >= 4 && p.palabra.length <= 6);
@@ -177,7 +188,9 @@ function iniciarPartida(nuevaPartida = false) {
     palabraActual = disponibles[random].palabra;
     pistaActual = disponibles[random].pista;
     ultimaPalabra = palabraActual;
-
+    
+    partidaEnCurso = true; // Bloquea dobles ejecuciones
+    
     document.getElementById("pistaTexto").innerText = pistaActual;
     cambiarPantalla('pantalla-juego');
     actualizarUITopBar(); actualizarGraficos(); dibujarTeclado();
@@ -200,6 +213,8 @@ function mostrarFeedbackVisual(texto, esPositivo, x, y) {
 }
 
 function procesarLetra(letra, botonHTML, event) {
+    if(!partidaEnCurso || botonHTML.disabled) return;
+    
     botonHTML.disabled = true; letrasAdivinadas.push(letra);
     const rect = botonHTML.getBoundingClientRect();
     const x = event.clientX || rect.left + 15, y = event.clientY || rect.top;
@@ -233,8 +248,8 @@ function actualizarGraficos() {
     }
     document.getElementById("palabraTexto").innerText = textoMostrar;
     
-    if (victoria) setTimeout(() => finalizarJuego(true), 400);
-    if (errores >= config.vidas) setTimeout(() => finalizarJuego(false), 400);
+    if (victoria && partidaEnCurso) setTimeout(() => finalizarJuego(true), 400);
+    if (errores >= config.vidas && partidaEnCurso) setTimeout(() => finalizarJuego(false), 400);
 }
 
 function dibujarTeclado() {
@@ -255,6 +270,9 @@ function obtenerAnalisisRanking(puntaje) {
 }
 
 function finalizarJuego(gano) {
+    if(!partidaEnCurso) return; 
+    partidaEnCurso = false; // Evita dobles llamadas inmediatas
+
     cambiarPantalla('pantalla-resultado');
     document.getElementById("palabraRevelada").innerText = palabraActual;
     const msgFinal = document.getElementById("mensajeFinal"), msgRecord = document.getElementById("mensajeRécord");
@@ -273,7 +291,6 @@ function finalizarJuego(gano) {
     }
 
     puntajeAcumulado += puntosPalabraActual + bonusVidas + bonusRacha;
-    
     guardarStatsFinales(gano);
 
     document.getElementById("res-letras").innerText = puntosPalabraActual;
@@ -283,7 +300,10 @@ function finalizarJuego(gano) {
     document.getElementById("puntosFinales").innerText = puntajeAcumulado;
 
     msgRecord.style.display = "none";
-    if (puntajeAcumulado >= stats.mejorPuntaje && puntajeAcumulado > 0) msgRecord.style.display = "block";
+    // Corrección Récord: Solo si supera estrictamente el registro anterior
+    if (puntajeAcumulado > recordAnteriorLocal && puntajeAcumulado > 0) {
+        msgRecord.style.display = "block";
+    }
     
     document.getElementById("mensajeRanking").innerText = puntajeAcumulado > 0 ? obtenerAnalisisRanking(puntajeAcumulado) : "";
 }
@@ -298,12 +318,15 @@ document.getElementById("formPuntaje").addEventListener("submit", (e) => {
     e.preventDefault();
     const btn = document.getElementById("btnGuardar");
     btn.disabled = true; btn.innerText = "Guardando...";
-    fetch(WEB_APP_URL, {
-        method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "saveScore", jugador: document.getElementById("nombreJugador").value, puntaje: puntajeAcumulado })
-    }).then(() => {
-        alert("¡Puntaje guardado con éxito!"); volverAlMenu();
-    }).finally(() => { btn.disabled = false; btn.innerText = "Guardar Puntaje"; });
+    
+    fetchJSONSeguro({ action: "saveScore", jugador: document.getElementById("nombreJugador").value, puntaje: puntajeAcumulado })
+    .then(data => {
+        if(data.status === 'success') {
+            alert("¡Puntaje guardado con éxito!"); volverAlMenu();
+        } else throw new Error(data.message || "Error del servidor");
+    })
+    .catch(() => alert("Error de conexión. Tu récord se mantiene localmente."))
+    .finally(() => { btn.disabled = false; btn.innerText = "Guardar Puntaje"; });
 });
 
 // --- MODO ADMIN ---
@@ -336,12 +359,16 @@ function mostrarNotificacionAdmin(mensaje, tipo) {
 // Admin: Configuración
 document.getElementById("formAdminConfig").addEventListener("submit", (e) => {
     e.preventDefault();
-    config = {
-        vidas: parseInt(document.getElementById("cfg-vidas").value),
-        puntosAcierto: parseInt(document.getElementById("cfg-puntos").value),
-        penalizacion: parseInt(document.getElementById("cfg-penalizacion").value),
-        maxMult: parseInt(document.getElementById("cfg-mult").value)
-    };
+    const v = parseInt(document.getElementById("cfg-vidas").value);
+    const p = parseInt(document.getElementById("cfg-puntos").value);
+    const pen = parseInt(document.getElementById("cfg-penalizacion").value);
+    const m = parseInt(document.getElementById("cfg-mult").value);
+
+    if (isNaN(v) || v < 1 || v > 10 || isNaN(p) || p < 1 || isNaN(pen) || pen < 0 || isNaN(m) || m < 1 || m > 10) {
+        return mostrarNotificacionAdmin("Valores de configuración inválidos.", "error");
+    }
+
+    config = { vidas: v, puntosAcierto: p, penalizacion: pen, maxMult: m };
     localStorage.setItem("ahorcadoConfig", JSON.stringify(config));
     mostrarNotificacionAdmin("Configuración guardada localmente", "success");
 });
@@ -358,12 +385,15 @@ function renderizarRankingAdmin() {
 
 function eliminarRankingAdmin(fecha, jugador, puntaje) {
     if(!confirm(`¿Eliminar puntaje de ${jugador} (${puntaje} pts)?`)) return;
-    rankingGlobal = rankingGlobal.filter(r => !(r.fecha === fecha && r.jugador === jugador && r.puntaje === puntaje));
-    guardarCacheLocal(); renderizarRankingAdmin(); setSyncStatus('syncing');
-    fetch(WEB_APP_URL, {
-        method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "deleteRanking", fecha: fecha, jugador: jugador, puntaje: puntaje })
-    }).then(() => { setSyncStatus('success'); actualizarDatosSilencioso(); }).catch(() => setSyncStatus('error'));
+    setSyncStatus('syncing');
+    
+    fetchJSONSeguro({ action: "deleteRanking", fecha: fecha, jugador: jugador, puntaje: puntaje })
+    .then(data => {
+        if(data.status === 'success') {
+            rankingGlobal = rankingGlobal.filter(r => !(r.fecha === fecha && r.jugador === jugador && r.puntaje === puntaje));
+            guardarCacheLocal(); renderizarRankingAdmin(); setSyncStatus('success');
+        } else throw new Error();
+    }).catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error del servidor.", "error"); });
 }
 
 // Admin: Palabras
@@ -397,33 +427,50 @@ function prepararEdicion(palabra, pista) {
 
 document.getElementById("formAdminPalabra").addEventListener("submit", (e) => {
     e.preventDefault();
-    const inpPalabra = document.getElementById("admin-palabra").value.trim().toUpperCase(), inpPista = document.getElementById("admin-pista").value.trim();
-    if (!inpPalabra || !inpPista) return mostrarNotificacionAdmin("Datos inválidos", "error");
+    const inpPalabra = document.getElementById("admin-palabra").value.trim().toUpperCase();
+    const inpPista = document.getElementById("admin-pista").value.trim();
+    
+    if (!validarPalabra(inpPalabra)) return mostrarNotificacionAdmin("La palabra solo puede contener letras (A-Z, Ñ) sin espacios ni símbolos.", "error");
+    if (!inpPista) return mostrarNotificacionAdmin("La pista no puede estar vacía.", "error");
+    
     if (bancoPalabras.some(p => p.palabra === inpPalabra && (!modoEdicionAdmin || p.palabra !== palabraOriginalEditando))) return mostrarNotificacionAdmin("Palabra duplicada.", "error");
 
     const payload = modoEdicionAdmin ? { action: "editWord", oldPalabra: palabraOriginalEditando, newPalabra: inpPalabra, newPista: inpPista } : { action: "addWord", palabra: inpPalabra, pista: inpPista };
-    if (modoEdicionAdmin) {
-        const idx = bancoPalabras.findIndex(p => p.palabra === palabraOriginalEditando);
-        if(idx > -1) bancoPalabras[idx] = { palabra: inpPalabra, pista: inpPista };
-    } else { bancoPalabras.push({ palabra: inpPalabra, pista: inpPista }); }
     
-    guardarCacheLocal(); renderizarTablaAdmin(); cancelarEdicionAdmin(); setSyncStatus('syncing'); mostrarNotificacionAdmin("Guardado localmente", "success");
-    fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
-    .then(() => { setSyncStatus('success'); actualizarDatosSilencioso(); }).catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error servidor", "error"); });
+    setSyncStatus('syncing');
+    fetchJSONSeguro(payload)
+    .then(data => {
+        if(data.status === 'success') {
+            if (modoEdicionAdmin) {
+                const idx = bancoPalabras.findIndex(p => p.palabra === palabraOriginalEditando);
+                if(idx > -1) bancoPalabras[idx] = { palabra: inpPalabra, pista: inpPista };
+            } else { bancoPalabras.push({ palabra: inpPalabra, pista: inpPista }); }
+            
+            guardarCacheLocal(); renderizarTablaAdmin(); cancelarEdicionAdmin(); setSyncStatus('success'); 
+            mostrarNotificacionAdmin(modoEdicionAdmin ? "Palabra editada" : "Palabra agregada", "success");
+        } else throw new Error();
+    })
+    .catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error del servidor.", "error"); });
 });
 
 function eliminarPalabra(palabra) {
     if (!confirm(`¿Eliminar la palabra "${palabra}"?`)) return;
-    bancoPalabras = bancoPalabras.filter(p => p.palabra !== palabra);
-    guardarCacheLocal(); renderizarTablaAdmin(); setSyncStatus('syncing'); mostrarNotificacionAdmin("Eliminada", "success");
-    fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "deleteWord", palabra: palabra }) })
-    .then(() => { setSyncStatus('success'); actualizarDatosSilencioso(); }).catch(() => setSyncStatus('error'));
+    setSyncStatus('syncing');
+    
+    fetchJSONSeguro({ action: "deleteWord", palabra: palabra })
+    .then(data => {
+        if(data.status === 'success') {
+            bancoPalabras = bancoPalabras.filter(p => p.palabra !== palabra);
+            guardarCacheLocal(); renderizarTablaAdmin(); setSyncStatus('success'); mostrarNotificacionAdmin("Eliminada", "success");
+        } else throw new Error();
+    })
+    .catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error al eliminar", "error"); });
 }
 
 // --- IMPORTAR / EXPORTAR ---
 function exportarCSV() {
     if(bancoPalabras.length === 0) return mostrarNotificacionAdmin("Banco vacío", "error");
-    let csv = "palabra,pista\n" + bancoPalabras.map(p => `${p.palabra},${p.pista}`).join("\n");
+    let csv = "palabra,pista\n" + bancoPalabras.map(p => `${p.palabra},${p.pista.replace(/,/g, "")}`).join("\n");
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'banco_palabras.csv';
     a.click(); URL.revokeObjectURL(a.href);
@@ -436,29 +483,39 @@ function importarCSV(event) {
         const lineas = e.target.result.split('\n');
         let nuevas = [], duplicadas = 0, invalidas = 0;
         
-        for(let i = 1; i < lineas.length; i++) { // Salta cabecera
-            const partes = lineas[i].split(',');
-            if(partes.length >= 2) {
-                const pal = partes[0].trim().toUpperCase();
-                const pis = partes.slice(1).join(',').trim(); 
+        for(let i = 1; i < lineas.length; i++) { 
+            const linea = lineas[i].trim();
+            if(!linea) continue;
+            
+            const idx = linea.indexOf(',');
+            if(idx > 0) {
+                const pal = linea.substring(0, idx).trim().toUpperCase();
+                let pis = linea.substring(idx + 1).trim();
+                
+                // Limpieza básica si Excel metió comillas dobles
+                if (pis.startsWith('"') && pis.endsWith('"')) pis = pis.substring(1, pis.length - 1);
+                
                 if(pal && pis) {
-                    if(bancoPalabras.some(p => p.palabra === pal) || nuevas.some(n => n[0] === pal)) duplicadas++;
-                    else nuevas.push([pal, pis]);
+                    if (!validarPalabra(pal)) {
+                        invalidas++;
+                    } else if(bancoPalabras.some(p => p.palabra === pal) || nuevas.some(n => n[0] === pal)) {
+                        duplicadas++;
+                    } else nuevas.push([pal, pis]);
                 } else invalidas++;
-            }
+            } else invalidas++;
         }
         
-        const msg = `Encontradas: ${lineas.length - 1}\nNuevas: ${nuevas.length}\nDuplicadas: ${duplicadas}\nInválidas: ${invalidas}\n\n¿Importar las nuevas?`;
+        const msg = `Encontradas: ${lineas.length - 1}\nNuevas (Válidas): ${nuevas.length}\nDuplicadas: ${duplicadas}\nInválidas (Espacios/símbolos): ${invalidas}\n\n¿Importar las nuevas?`;
         if(nuevas.length > 0 && confirm(msg)) {
             setSyncStatus('syncing');
-            nuevas.forEach(n => bancoPalabras.push({palabra: n[0], pista: n[1]}));
-            guardarCacheLocal(); renderizarTablaAdmin();
-            
-            fetch(WEB_APP_URL, {
-                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "importWords", words: nuevas })
-            }).then(() => { setSyncStatus('success'); actualizarDatosSilencioso(); mostrarNotificacionAdmin("Importación exitosa", "success");
-            }).catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error servidor al importar", "error"); });
+            fetchJSONSeguro({ action: "importWords", words: nuevas })
+            .then(data => {
+                if(data.status === 'success') {
+                    nuevas.forEach(n => bancoPalabras.push({palabra: n[0], pista: n[1]}));
+                    guardarCacheLocal(); renderizarTablaAdmin(); setSyncStatus('success'); mostrarNotificacionAdmin("Importación exitosa", "success");
+                } else throw new Error();
+            })
+            .catch(() => { setSyncStatus('error'); mostrarNotificacionAdmin("Error servidor al importar", "error"); });
         } else if (nuevas.length === 0) { alert("No se encontraron palabras nuevas válidas para importar."); }
     };
     reader.readAsText(file);
