@@ -6,78 +6,176 @@
     <title>El Ahorcado Web</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
-        body { display: flex; align-items: center; min-height: 100vh; background-color: #11191f; }
-        .contenedor-juego { max-width: 600px; width: 100%; margin: auto; position: relative; }
+        /* --- VARIABLES GLOBALES Y RESET --- */
+        :root {
+            --color-acierto: #2ea043;
+            --color-error: #da3633;
+            --color-info: #58a6ff;
+            --color-record: #f1e05a;
+            --color-racha: #d2a8ff;
+            --bg-panel: #0d1117;
+            --border-panel: #30363d;
+            --transition-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        body { display: flex; align-items: center; min-height: 100vh; background-color: #010409; font-family: system-ui, -apple-system, sans-serif; }
+        .contenedor-juego { max-width: 600px; width: 100%; margin: auto; position: relative; padding: 1rem; }
+        
+        /* --- SISTEMA DE PANTALLAS Y ANIMACIONES --- */
         .pantalla { display: none; }
-        .pantalla.activa { display: block; animation: fadeIn 0.3s ease-in-out; }
-        
-        .stats-bar { display: flex; justify-content: space-between; background: #161f27; padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-weight: bold; border: 1px solid #30363d; font-size: 0.95rem; }
-        .stats-bar span { color: #58a6ff; transition: all 0.2s; }
-        .mult-activo { color: #d2a8ff !important; text-shadow: 0 0 8px rgba(210, 168, 255, 0.6); animation: pulse 1s infinite; }
-        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 1.1rem;}
-        .vidas { font-size: 1.2rem;}
-        
-        .arte-ascii { font-family: 'Courier New', Courier, monospace; white-space: pre; background: #0d1117; padding: 1.5rem; border-radius: 12px; text-align: center; color: #2ea043; font-size: 1.2rem; line-height: 1.2; border: 1px solid #30363d; min-height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; transition: transform 0.1s; }
-        .shake { animation: shake 0.3s ease-in-out; }
-        .palabra-oculta { letter-spacing: 12px; font-size: 2.5rem; text-align: center; margin: 1.5rem 0; font-family: monospace; font-weight: bold; color: #e6edf3; }
-        
-        .teclado { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; position: relative; }
-        .teclado button { width: 48px; height: 48px; padding: 0; font-size: 1.2rem; font-weight: bold; border-radius: 8px; transition: all 0.2s; }
-        .teclado button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
-        .teclado button.acierto { background-color: #2ea043; border-color: #2ea043; color: white; opacity: 1; }
-        .teclado button.error { background-color: #da3633; border-color: #da3633; color: white; opacity: 0.4; }
-        
-        .feedback-flotante { position: absolute; pointer-events: none; font-weight: bold; font-size: 1.2rem; animation: floatUp 0.8s ease-out forwards; z-index: 10; }
-        .feedback-pos { color: #2ea043; text-shadow: 0 0 5px black; }
-        .feedback-neg { color: #da3633; text-shadow: 0 0 5px black; }
-        
-        table { text-align: center; margin-top: 1rem; }
-        th { color: #58a6ff; font-weight: bold; }
-        
-        .nuevo-record { color: #f1e05a !important; text-shadow: 0 0 10px rgba(241, 224, 90, 0.5); font-size: 1.3rem; animation: pulse 1.5s infinite; margin-top: 1rem; }
-        .desglose-puntos { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin: 1rem auto; max-width: 350px; text-align: left; font-size: 1rem; }
-        .desglose-puntos div { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
-        .desglose-total { border-top: 1px solid #30363d; padding-top: 0.5rem; font-size: 1.4rem; font-weight: bold; color: #58a6ff; }
-        
-        /* Stats Screen */
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; }
-        .stat-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; text-align: center; }
-        .stat-box span { display: block; font-size: 1.5rem; font-weight: bold; color: #58a6ff; }
-
-        .admin-nav { display: flex; gap: 10px; margin-bottom: 1.5rem; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-        .admin-nav button { flex: 1; padding: 0.5rem; font-size: 0.9rem; }
-        .sec-admin { display: none; }
-        .sec-admin.activa { display: block; animation: fadeIn 0.2s ease; }
-        .tabla-admin { table-layout: fixed; width: 100%; font-size: 0.9rem; }
-        .tabla-admin td, .tabla-admin th { vertical-align: middle; }
-        .col-pista { word-wrap: break-word; white-space: normal; }
-        
-        .toast-admin { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 0.8rem 1.5rem; border-radius: 30px; font-weight: bold; color: white; opacity: 0; transition: all 0.3s ease; z-index: 1000; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-        .toast-admin.mostrar { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .toast-admin.success { background-color: #238636; border: 1px solid #2ea043; }
-        .toast-admin.error { background-color: #da3633; border: 1px solid #b62324; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.3); } }
+        .pantalla.activa { display: block; animation: fadeIn 0.4s var(--transition-bounce); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.3); } }
+
+        /* --- TIPOGRAFÍA Y TÍTULOS --- */
+        .titulo-principal { text-align: center; margin-bottom: 2rem; font-size: 2.5rem; letter-spacing: -1px; text-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .subtitulo { text-align: center; color: var(--color-info); font-size: 1.2rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+        
+        /* --- COMPONENTES UI - INICIO --- */
+        .controles-superiores { display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); border: 1px solid var(--border-panel); padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 2rem; gap: 10px; flex-wrap: wrap; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .controles-superiores button { margin: 0; padding: 0.4rem 1rem; font-size: 0.9rem; border-radius: 8px; }
+        .controles-superiores .selector-dificultad { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: bold; }
+        .controles-superiores select { margin: 0; padding: 0.3rem 2rem 0.3rem 0.8rem; font-size: 0.9rem; background-color: rgba(255,255,255,0.05); border-color: var(--border-panel); border-radius: 8px; height: auto; }
+        
+        .caja-record { text-align: center; margin-bottom: 1.5rem; }
+        .caja-record span { display: block; font-size: 2.2rem; font-weight: bold; color: var(--color-record); text-shadow: 0 0 15px rgba(241, 224, 90, 0.2); line-height: 1; margin-top: 0.5rem; }
+        
+        .btn-jugar { width: 100%; max-width: 320px; margin: 0 auto 2.5rem auto; display: block; font-size: 1.25rem; font-weight: bold; padding: 1rem; border-radius: 16px; background: linear-gradient(135deg, var(--color-acierto), #238636); border: none; box-shadow: 0 8px 16px rgba(46, 160, 67, 0.2); transition: all 0.2s var(--transition-bounce); }
+        .btn-jugar:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 20px rgba(46, 160, 67, 0.3); }
+        .btn-jugar:active { transform: translateY(1px); }
+
+        /* --- SALÓN DE LA FAMA (RANKING) --- */
+        .tabla-ranking { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: 0; }
+        .tabla-ranking th { border: none; color: var(--color-info); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; padding: 0 1rem 0.5rem 1rem; }
+        .tabla-ranking td { background: var(--bg-panel); border-top: 1px solid var(--border-panel); border-bottom: 1px solid var(--border-panel); padding: 0.8rem 1rem; font-weight: 500; }
+        .tabla-ranking td:first-child { border-left: 1px solid var(--border-panel); border-top-left-radius: 12px; border-bottom-left-radius: 12px; font-size: 1.2rem; width: 60px; }
+        .tabla-ranking td:last-child { border-right: 1px solid var(--border-panel); border-top-right-radius: 12px; border-bottom-right-radius: 12px; font-weight: bold; color: var(--pico-color); }
+        .tabla-ranking tr { transition: transform 0.2s; }
+        .tabla-ranking tr:hover { transform: scale(1.01); }
+
+        /* --- COMPONENTES UI - PARTIDA --- */
+        .stats-bar { display: flex; justify-content: space-between; background: var(--bg-panel); padding: 0.8rem 1.2rem; border-radius: 12px; margin-bottom: 1rem; font-weight: bold; border: 1px solid var(--border-panel); font-size: 0.95rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stats-bar span { color: var(--color-info); transition: color 0.2s; font-size: 1.1rem; }
+        .mult-activo { color: var(--color-racha) !important; text-shadow: 0 0 8px rgba(210, 168, 255, 0.6); animation: pulse 1s infinite; }
+        
+        .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; font-size: 1rem; padding: 0 0.5rem; }
+        .info-bar-pista { color: var(--color-info); font-weight: 600; background: rgba(88, 166, 255, 0.1); padding: 0.3rem 0.8rem; border-radius: 20px; }
+        .vidas { font-size: 1.3rem; letter-spacing: 2px; }
+        
+        .arte-ascii { font-family: 'Fira Code', 'Courier New', monospace; white-space: pre; background: var(--bg-panel); padding: 1.5rem; border-radius: 16px; text-align: center; color: var(--color-acierto); font-size: 1.2rem; line-height: 1.2; border: 1px solid var(--border-panel); min-height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem; transition: transform 0.1s; box-shadow: inset 0 4px 20px rgba(0,0,0,0.5); }
+        .shake { animation: shake 0.3s ease-in-out; color: var(--color-error); }
+        
+        .palabra-oculta { letter-spacing: 12px; font-size: 2.5rem; text-align: center; margin: 0 0 2rem 0; font-family: 'Fira Code', monospace; font-weight: bold; color: #e6edf3; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        
+        .teclado { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; position: relative; padding: 0 0.5rem; }
+        .teclado button { width: calc(10% - 8px); min-width: 42px; height: 52px; padding: 0; font-size: 1.2rem; font-weight: bold; border-radius: 10px; background-color: var(--bg-panel); border: 1px solid var(--border-panel); transition: all 0.15s ease; box-shadow: 0 4px 0 rgba(0,0,0,0.3); margin-bottom: 4px; }
+        .teclado button:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--color-info); background-color: rgba(88, 166, 255, 0.1); box-shadow: 0 6px 0 rgba(0,0,0,0.2); }
+        .teclado button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); }
+        .teclado button.acierto { background-color: var(--color-acierto); border-color: var(--color-acierto); color: white; opacity: 1; transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); pointer-events: none; }
+        .teclado button.error { background-color: var(--bg-panel); border-color: var(--color-error); color: var(--color-error); opacity: 0.5; transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); pointer-events: none; }
+        
+        .feedback-flotante { position: absolute; pointer-events: none; font-weight: bold; font-size: 1.5rem; animation: floatUp 0.8s ease-out forwards; z-index: 10; }
+        .feedback-pos { color: var(--color-acierto); text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+        .feedback-neg { color: var(--color-error); text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+
+        /* --- PANTALLA RESULTADOS --- */
+        .resultado-header { text-align: center; margin-bottom: 2rem; }
+        .resultado-titulo { font-size: 3rem; margin-bottom: 0.5rem; font-weight: 800; letter-spacing: -1px; }
+        .resultado-palabra { font-size: 1.2rem; color: #8b949e; }
+        .resultado-palabra strong { color: var(--color-info); font-size: 1.5rem; letter-spacing: 2px; }
+        
+        .nuevo-record { color: var(--color-record) !important; text-shadow: 0 0 15px rgba(241, 224, 90, 0.4); font-size: 1.4rem; animation: pulse 1.5s infinite; margin-top: 1rem; font-weight: bold; background: rgba(241, 224, 90, 0.1); padding: 0.5rem; border-radius: 8px; display: inline-block; }
+        
+        .desglose-puntos { background: var(--bg-panel); border: 1px solid var(--border-panel); border-radius: 16px; padding: 1.5rem; margin: 0 auto 2rem auto; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .desglose-puntos div { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; font-size: 1rem; color: #c9d1d9; }
+        .desglose-puntos div span:last-child { font-weight: bold; font-size: 1.1rem; }
+        .desglose-total { border-top: 2px dashed var(--border-panel); padding-top: 1rem; margin-top: 1rem !important; }
+        .desglose-total span { font-size: 1.5rem !important; color: var(--color-info); }
+        
+        .mensaje-ranking { font-weight: bold; color: #8b949e; text-align: center; margin-bottom: 2rem; font-size: 1.1rem; }
+        
+        .acciones-resultado { display: grid; gap: 1rem; max-width: 400px; margin: 0 auto; }
+        .btn-continuar { background: linear-gradient(135deg, var(--color-info), #1f6feb); border: none; font-size: 1.1rem; padding: 1rem; border-radius: 12px; }
+        .btn-continuar:hover { background: linear-gradient(135deg, #79c0ff, #388bfd); transform: translateY(-2px); }
+
+        /* --- PANTALLA ESTADÍSTICAS --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+        .stat-box { background: var(--bg-panel); border: 1px solid var(--border-panel); border-radius: 12px; padding: 1.2rem; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s; }
+        .stat-box:hover { transform: translateY(-3px); border-color: rgba(88, 166, 255, 0.5); }
+        .stat-box .stat-label { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; font-weight: 600; }
+        .stat-box .stat-valor { font-size: 1.8rem; font-weight: bold; color: var(--color-info); line-height: 1; }
+        
+        .tabla-historial th { background: transparent; border-bottom: 2px solid var(--border-panel); color: #8b949e; }
+        .tabla-historial td { padding: 0.8rem 0.5rem; border-bottom: 1px solid var(--border-panel); }
+
+        /* --- PANEL DE ADMINISTRACIÓN --- */
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: var(--bg-panel); padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid var(--border-panel); }
+        .admin-header h2 { margin: 0; font-size: 1.5rem; }
+        .sync-badge { font-size: 0.85rem; font-weight: bold; padding: 0.3rem 0.8rem; border-radius: 20px; background: rgba(255,255,255,0.05); }
+        
+        .admin-nav { display: flex; gap: 8px; margin-bottom: 2rem; background: var(--bg-panel); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border-panel); overflow-x: auto; }
+        .admin-nav button { flex: 1; margin: 0; padding: 0.6rem 1rem; font-size: 0.95rem; border-radius: 8px; border: none; white-space: nowrap; transition: all 0.2s; }
+        .admin-nav button.primary { background: rgba(88, 166, 255, 0.15); color: var(--color-info); font-weight: bold; }
+        .admin-nav button.outline { background: transparent; border: none; color: #8b949e; }
+        .admin-nav button.outline:hover { background: rgba(255,255,255,0.05); color: var(--pico-color); }
+        
+        .admin-card { background: var(--bg-panel); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--border-panel); margin-bottom: 1.5rem; }
+        .admin-card h4 { margin-top: 0; margin-bottom: 1.5rem; color: var(--color-info); }
+        
+        .admin-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; border: 1px solid var(--border-panel); }
+        .admin-toolbar input[type="search"] { margin: 0; max-width: 250px; border-radius: 8px; background: var(--bg-panel); }
+        .admin-toolbar-actions { display: flex; gap: 8px; }
+        .admin-toolbar-actions button, .admin-toolbar-actions label { margin: 0; padding: 0.4rem 0.8rem; font-size: 0.9rem; border-radius: 8px; }
+        
+        .tabla-admin { table-layout: fixed; width: 100%; font-size: 0.9rem; margin-bottom: 0; }
+        .tabla-admin th { background: rgba(0,0,0,0.3); border-bottom: 2px solid var(--border-panel); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; color: #8b949e; }
+        .tabla-admin td { vertical-align: middle; border-bottom: 1px solid var(--border-panel); padding: 0.8rem; }
+        .col-pista { word-wrap: break-word; white-space: normal; color: #c9d1d9; }
+        .acciones-tabla { display: flex; gap: 4px; justify-content: center; }
+        .btn-icono { padding: 0.3rem 0.6rem; border-radius: 6px; border: none; background: rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; }
+        .btn-icono:hover { background: rgba(255,255,255,0.1); }
+        
+        /* --- TOAST NOTIFICATIONS --- */
+        .toast-admin { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 1rem 1.5rem; border-radius: 12px; font-weight: bold; color: white; opacity: 0; transition: all 0.3s var(--transition-bounce); z-index: 1000; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px; }
+        .toast-admin.mostrar { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-admin.success { background-color: var(--bg-panel); border: 1px solid var(--color-acierto); border-left: 4px solid var(--color-acierto); }
+        .toast-admin.error { background-color: var(--bg-panel); border: 1px solid var(--color-error); border-left: 4px solid var(--color-error); }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 600px) {
+            .controles-superiores { flex-direction: column; align-items: stretch; }
+            .controles-superiores button, .controles-superiores .selector-dificultad { width: 100%; justify-content: space-between; }
+            .titulo-principal { font-size: 2rem; margin-bottom: 1rem; }
+            .caja-record span { font-size: 1.8rem; }
+            .teclado button { width: calc(14% - 6px); height: 48px; font-size: 1.1rem; }
+            .palabra-oculta { font-size: 2rem; letter-spacing: 8px; }
+            .admin-toolbar { flex-direction: column; align-items: stretch; }
+            .admin-toolbar input[type="search"] { max-width: 100%; }
+            .admin-toolbar-actions { justify-content: stretch; }
+            .admin-toolbar-actions button, .admin-toolbar-actions label { flex: 1; text-align: center; }
+            .acciones-tabla { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
     <main class="container contenedor-juego">
-        <article>
-            <h1 style="text-align: center; margin-bottom: 1.5rem;">💀 El Ahorcado</h1>
+        <article style="background: transparent; box-shadow: none; padding: 0;">
+            <h1 class="titulo-principal">💀 El Ahorcado</h1>
             
             <div id="pantalla-carga" class="pantalla activa">
-                <p aria-busy="true" style="text-align: center;">Cargando datos...</p>
+                <div class="arte-ascii" style="min-height: 100px; border: none; box-shadow: none;">
+                    <p aria-busy="true" style="margin:0; font-family: system-ui;">Cargando juego...</p>
+                </div>
             </div>
 
             <!-- PANTALLA INICIO -->
-            <div id="pantalla-inicio" class="pantalla" style="text-align: center;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
-                    <button class="outline secondary" onclick="abrirStats()" style="width: auto; padding: 0.4rem 1rem; font-size: 0.9rem; margin:0;">📊 Mis estadísticas</button>
-                    <label style="margin: 0; font-size: 0.9rem;">Dificultad:
-                        <select id="select-dificultad" style="display: inline-block; width: auto; padding: 0.2rem 2rem 0.2rem 0.5rem; margin-left: 5px;">
+            <div id="pantalla-inicio" class="pantalla">
+                <div class="controles-superiores">
+                    <button class="outline secondary" onclick="abrirStats()">📊 Estadísticas</button>
+                    <label class="selector-dificultad">
+                        <span>Dificultad:</span>
+                        <select id="select-dificultad">
                             <option value="todas">Todas</option>
                             <option value="facil">Fácil (4-6)</option>
                             <option value="media">Media (7-9)</option>
@@ -86,45 +184,68 @@
                     </label>
                 </div>
 
-                <p>🏆 Récord Personal: <strong id="menu-record" style="color: #f1e05a;">0</strong> pts</p>
-                <button onclick="iniciarPartida(true)" style="margin-bottom: 2rem; max-width: 300px; margin-inline: auto;">🎮 Iniciar Nueva Partida</button>
+                <div class="caja-record">
+                    <p style="margin:0; color:#8b949e; text-transform:uppercase; font-size:0.9rem; font-weight:bold; letter-spacing:1px;">Récord Personal</p>
+                    <span id="menu-record">0</span>
+                </div>
+
+                <button class="btn-jugar" onclick="iniciarPartida(true)">🎮 Iniciar Partida</button>
                 
-                <h3>🏆 Salón de la Fama (Top 5)</h3>
-                <figure>
-                    <table role="grid">
-                        <thead><tr><th>Top</th><th>Jugador</th><th>Puntaje</th></tr></thead>
+                <h3 class="subtitulo" style="margin-top: 3rem;">🏆 Salón de la Fama</h3>
+                <div style="overflow-x: auto; padding: 0.5rem 0;">
+                    <table class="tabla-ranking">
+                        <thead><tr><th>Rango</th><th>Jugador</th><th style="text-align:right;">Puntaje</th></tr></thead>
                         <tbody id="tabla-ranking-inicio"></tbody>
                     </table>
-                </figure>
+                </div>
                 
-                <hr style="margin: 2rem 0; border-color: #30363d;">
-                <button class="outline secondary" onclick="abrirAdmin()" style="border: none; font-size: 0.9rem;">⚙️ Administrar juego</button>
+                <div style="text-align: center; margin-top: 3rem;">
+                    <button class="outline secondary" onclick="abrirAdmin()" style="border: none; font-size: 0.85rem; opacity: 0.6; transition: opacity 0.2s;">⚙️ Modo Administrador</button>
+                </div>
             </div>
 
             <!-- PANTALLA ESTADÍSTICAS -->
             <div id="pantalla-stats" class="pantalla">
-                <h2 style="text-align: center;">📊 Mis Estadísticas</h2>
+                <h2 class="subtitulo" style="font-size: 1.5rem; margin-bottom: 2rem;">📊 Resumen de Jugador</h2>
                 
                 <div class="stats-grid">
-                    <div class="stat-box">Partidas Jugadas <span id="stat-jugadas">0</span></div>
-                    <div class="stat-box">Victorias / Derrotas <span id="stat-vd">0 / 0</span></div>
-                    <div class="stat-box">% Victorias <span id="stat-porcentaje">0%</span></div>
-                    <div class="stat-box">Puntos Acumulados <span id="stat-totales">0</span></div>
-                    <div class="stat-box" style="color:#f1e05a;">Mejor Puntaje <span id="stat-record" style="color:#f1e05a;">0</span></div>
-                    <div class="stat-box" style="color:#d2a8ff;">Mejor Racha <span id="stat-racha" style="color:#d2a8ff;">0</span></div>
+                    <div class="stat-box">
+                        <span class="stat-label">Partidas</span>
+                        <span class="stat-valor" id="stat-jugadas">0</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Vic / Der</span>
+                        <span class="stat-valor" id="stat-vd" style="color: #c9d1d9;">0 / 0</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Win Rate</span>
+                        <span class="stat-valor" id="stat-porcentaje" style="color: var(--color-acierto);">0%</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Pts Totales</span>
+                        <span class="stat-valor" id="stat-totales">0</span>
+                    </div>
+                    <div class="stat-box" style="border-color: rgba(241, 224, 90, 0.3);">
+                        <span class="stat-label" style="color: var(--color-record);">Récord</span>
+                        <span class="stat-valor" id="stat-record" style="color: var(--color-record);">0</span>
+                    </div>
+                    <div class="stat-box" style="border-color: rgba(210, 168, 255, 0.3);">
+                        <span class="stat-label" style="color: var(--color-racha);">Racha Máx</span>
+                        <span class="stat-valor" id="stat-racha" style="color: var(--color-racha);">0</span>
+                    </div>
                 </div>
 
-                <h3 style="text-align: center; margin-top: 2rem;">📜 Historial Reciente</h3>
-                <figure>
-                    <table role="grid" style="font-size: 0.85rem;">
-                        <thead><tr><th>Fecha</th><th>Palabra</th><th>Resultado</th><th>Pts</th><th>Racha</th></tr></thead>
+                <h3 class="subtitulo" style="font-size: 1rem; margin-top: 3rem; text-align: left;">📜 Últimas Partidas</h3>
+                <div style="overflow-x: auto; background: var(--bg-panel); border: 1px solid var(--border-panel); border-radius: 12px; margin-bottom: 2rem;">
+                    <table class="tabla-historial" style="margin: 0; width: 100%; text-align: left;">
+                        <thead><tr><th style="padding-left:1rem;">Fecha</th><th>Palabra</th><th>Resultado</th><th>Pts</th><th>Racha</th></tr></thead>
                         <tbody id="tabla-historial"></tbody>
                     </table>
-                </figure>
+                </div>
 
-                <div style="display: flex; justify-content: space-between; margin-top: 2rem;">
-                    <button class="outline secondary" onclick="volverAlMenu()" style="width: auto;">Volver al Menú</button>
-                    <button class="outline" style="color: #da3633; border-color: #da3633; width: auto;" onclick="borrarHistorial()">🗑️ Borrar Estadísticas</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <button class="outline secondary" onclick="volverAlMenu()" style="width: auto; margin:0;">← Volver</button>
+                    <button class="outline" style="color: var(--color-error); border-color: var(--color-error); width: auto; margin:0; padding: 0.4rem 1rem; font-size: 0.9rem;" onclick="borrarHistorial()">🗑️ Reiniciar Datos</button>
                 </div>
             </div>
 
@@ -132,125 +253,129 @@
             <div id="pantalla-juego" class="pantalla">
                 <div class="stats-bar">
                     <div title="Mejor Puntuación">🏆 <span id="ui-record">0</span></div>
-                    <div title="Puntaje Actual">⭐ <span id="ui-puntaje">0</span></div>
-                    <div title="Racha y Multiplicador">🔥 Racha: <span id="ui-racha">0</span> (<span id="ui-mult">x1</span>)</div>
+                    <div title="Puntaje Actual">⭐ <span id="ui-puntaje" style="color:white; font-size:1.2rem;">0</span></div>
+                    <div title="Racha y Multiplicador">🔥 <span id="ui-racha">0</span> <span id="ui-mult" style="font-size: 0.9rem; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-left: 4px;">x1</span></div>
                 </div>
+                
                 <div class="info-bar">
-                    <span><strong>Pista:</strong> <span id="pistaTexto" style="color: #58a6ff;"></span></span>
-                    <span><span id="vidasTexto" class="vidas">❤️❤️❤️❤️❤️❤️</span></span>
+                    <span class="info-bar-pista">💡 <span id="pistaTexto"></span></span>
+                    <span class="vidas" id="vidasTexto">❤️❤️❤️❤️❤️❤️</span>
                 </div>
+                
                 <div class="arte-ascii" id="dibujoAhorcado"></div>
                 <div class="palabra-oculta" id="palabraTexto"></div>
                 <div class="teclado" id="tecladoContenedor"></div>
             </div>
 
             <!-- PANTALLA RESULTADO -->
-            <div id="pantalla-resultado" class="pantalla" style="text-align: center;">
-                <h2 id="mensajeFinal" style="font-size: 2.5rem; margin-bottom: 0;"></h2>
-                <div id="mensajeRécord" class="nuevo-record" style="display: none;">¡NUEVO RÉCORD PERSONAL! 👑</div>
-                
-                <p style="font-size: 1.1rem; margin-top: 1rem;">La palabra era: <strong id="palabraRevelada" style="color: #58a6ff;"></strong></p>
+            <div id="pantalla-resultado" class="pantalla">
+                <div class="resultado-header">
+                    <h2 id="mensajeFinal" class="resultado-titulo"></h2>
+                    <div id="mensajeRécord" class="nuevo-record" style="display: none;">👑 ¡NUEVO RÉCORD PERSONAL! 👑</div>
+                    <p class="resultado-palabra" style="margin-top: 1.5rem;">La palabra era:<br><strong id="palabraRevelada"></strong></p>
+                </div>
                 
                 <div class="desglose-puntos">
-                    <div><span>Puntos por letras:</span> <span id="res-letras">0</span></div>
-                    <div><span>Bonus Vidas Intactas:</span> <span id="res-vidas" style="color:#2ea043;">+0</span></div>
-                    <div><span>Bonus Racha (<span id="res-racha-num">0</span>):</span> <span id="res-racha-pts" style="color:#d2a8ff;">+0</span></div>
-                    <div class="desglose-total"><span>Puntaje Total:</span> <span id="puntosFinales">0</span></div>
+                    <div><span>Letras acertadas</span> <span id="res-letras">0</span></div>
+                    <div><span>Bonus Vidas</span> <span id="res-vidas" style="color:var(--color-acierto);">+0</span></div>
+                    <div><span>Bonus Racha (<span id="res-racha-num">0</span>)</span> <span id="res-racha-pts" style="color:var(--color-racha);">+0</span></div>
+                    <div class="desglose-total"><span>Total Partida</span> <span id="puntosFinales">0</span></div>
                 </div>
 
-                <p id="mensajeRanking" style="font-weight: bold; color: #8b949e;"></p>
+                <p id="mensajeRanking" class="mensaje-ranking"></p>
                 
-                <div class="grid" style="margin-top: 2rem; gap: 1rem;">
-                    <button id="btnContinuar" onclick="iniciarPartida(false)" style="display: none; background-color: #2ea043; border-color: #2ea043;">Siguiente Palabra ⏭️</button>
-                    <button class="secondary outline" onclick="mostrarFormularioPuntaje()">Guardar y Salir 💾</button>
+                <div class="acciones-resultado">
+                    <button id="btnContinuar" class="btn-continuar" onclick="iniciarPartida(false)" style="display: none;">Siguiente Palabra ⏭️</button>
+                    <button class="secondary outline" onclick="mostrarFormularioPuntaje()" style="border-radius: 12px; background: var(--bg-panel);">💾 Guardar y Salir</button>
                 </div>
 
-                <form id="formPuntaje" style="display: none; max-width: 300px; margin: 2rem auto; border-top: 1px solid #30363d; padding-top: 1.5rem;">
-                    <label for="nombreJugador">Registra tu puntaje en el ranking:</label>
-                    <input type="text" id="nombreJugador" placeholder="Ingresa tu nombre" maxlength="20" required>
-                    <button type="submit" id="btnGuardar">Guardar Puntaje</button>
-                    <a href="#" onclick="volverAlMenu()" style="display: block; margin-top: 1rem; color: #8b949e;">Cancelar y volver al menú</a>
+                <form id="formPuntaje" class="admin-card" style="display: none; max-width: 400px; margin: 2rem auto 0 auto;">
+                    <h4 style="text-align: center; margin-bottom: 1rem;">Registrar en el Ranking</h4>
+                    <input type="text" id="nombreJugador" placeholder="Tu nombre o apodo" maxlength="20" required style="text-align: center; font-size: 1.1rem; font-weight: bold;">
+                    <button type="submit" id="btnGuardar" style="border-radius: 8px; margin-top: 1rem;">Publicar Puntaje</button>
+                    <button type="button" class="outline secondary" onclick="volverAlMenu()" style="border: none; margin-top: 0.5rem; width: 100%;">Cancelar y volver al menú</button>
                 </form>
             </div>
 
             <!-- PANTALLA ADMINISTRACIÓN -->
             <div id="pantalla-admin" class="pantalla">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h2 style="margin: 0;">Panel Admin</h2>
-                    <span id="sync-status" style="color: #2ea043; font-size: 0.85rem; font-weight: bold;">✔️ Sincronizado</span>
+                <div class="admin-header">
+                    <h2>⚙️ Modo Admin</h2>
+                    <span id="sync-status" class="sync-badge" style="color: var(--color-acierto);">✔️ Sincronizado</span>
                 </div>
                 
                 <nav class="admin-nav">
-                    <button id="nav-palabras" onclick="cambiarSeccionAdmin('palabras')" class="primary">Banco</button>
-                    <button id="nav-ranking" onclick="cambiarSeccionAdmin('ranking')" class="secondary outline">Ranking</button>
-                    <button id="nav-config" onclick="cambiarSeccionAdmin('config')" class="secondary outline">Configuración</button>
+                    <button id="nav-palabras" onclick="cambiarSeccionAdmin('palabras')" class="primary">📚 Banco</button>
+                    <button id="nav-ranking" onclick="cambiarSeccionAdmin('ranking')" class="outline">🏆 Ranking</button>
+                    <button id="nav-config" onclick="cambiarSeccionAdmin('config')" class="outline">🛠️ Ajustes</button>
                 </nav>
 
                 <!-- SECCIÓN: BANCO -->
                 <div id="sec-admin-palabras" class="sec-admin activa">
-                    <form id="formAdminPalabra" style="background: #0d1117; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 1.5rem;">
-                        <h4 id="titulo-form-admin" style="margin-bottom: 1rem;">✨ Agregar Nueva Palabra</h4>
+                    <form id="formAdminPalabra" class="admin-card">
+                        <h4 id="titulo-form-admin">✨ Agregar Nueva Palabra</h4>
                         <div class="grid">
                             <label>Palabra: 
-                                <input type="text" id="admin-palabra" required autocomplete="off" maxlength="25">
-                                <small style="color: #8b949e; font-size: 0.75rem;">Solo letras (A-Z, Ñ). Sin espacios ni tildes.</small>
+                                <input type="text" id="admin-palabra" required autocomplete="off" maxlength="25" style="text-transform: uppercase;">
+                                <small style="color: #8b949e; font-size: 0.75rem;">A-Z, Ñ. Sin espacios.</small>
                             </label>
                             <label>Pista: 
                                 <input type="text" id="admin-pista" required autocomplete="off" maxlength="60">
                             </label>
                         </div>
-                        <div class="grid" style="margin-top: 1rem;">
-                            <button type="submit" id="admin-btn-guardar">Agregar</button>
-                            <button type="button" id="admin-btn-cancelar" class="secondary outline" style="display:none;" onclick="cancelarEdicionAdmin()">Cancelar</button>
+                        <div class="grid" style="margin-top: 1.5rem; gap: 10px;">
+                            <button type="submit" id="admin-btn-guardar" style="border-radius: 8px;">Agregar</button>
+                            <button type="button" id="admin-btn-cancelar" class="secondary outline" style="display:none; border-radius: 8px;" onclick="cancelarEdicionAdmin()">Cancelar</button>
                         </div>
                     </form>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 10px; flex-wrap: wrap;">
-                        <span id="contador-palabras" style="font-weight: bold; color: #58a6ff;">0 palabras</span>
-                        <input type="search" id="admin-buscador" placeholder="Buscar..." style="margin: 0; max-width: 200px;">
-                        <div>
-                            <button class="outline secondary" style="padding: 0.3rem 0.5rem; margin:0;" onclick="exportarCSV()">📥 Exportar</button>
-                            <label class="outline secondary" style="padding: 0.3rem 0.5rem; margin:0; cursor:pointer; display:inline-block; border: 1px solid var(--pico-secondary-border);">
+                    <div class="admin-toolbar">
+                        <span id="contador-palabras" style="font-weight: bold; color: var(--color-info);">0 palabras</span>
+                        <input type="search" id="admin-buscador" placeholder="Buscar..." style="margin: 0;">
+                        <div class="admin-toolbar-actions">
+                            <button class="outline secondary" onclick="exportarCSV()">📥 Exportar</button>
+                            <label class="outline secondary" style="cursor:pointer; border: 1px solid var(--pico-secondary-border);">
                                 📤 Importar <input type="file" id="input-csv" accept=".csv" style="display:none;" onchange="importarCSV(event)">
                             </label>
                         </div>
                     </div>
 
-                    <figure>
-                        <table role="grid" class="tabla-admin">
-                            <thead><tr><th style="width: 30%;">Palabra</th><th style="width: 50%;">Pista</th><th style="width: 20%; text-align: center;">Acciones</th></tr></thead>
+                    <div style="overflow-x: auto; border: 1px solid var(--border-panel); border-radius: 12px; background: var(--bg-panel);">
+                        <table class="tabla-admin">
+                            <thead><tr><th style="width: 30%; padding-left:1rem;">Palabra</th><th style="width: 50%;">Pista</th><th style="width: 20%; text-align: center;">Acciones</th></tr></thead>
                             <tbody id="tabla-admin-palabras"></tbody>
                         </table>
-                    </figure>
+                    </div>
                 </div>
 
                 <!-- SECCIÓN: RANKING -->
                 <div id="sec-admin-ranking" class="sec-admin">
-                    <figure>
-                        <table role="grid" class="tabla-admin">
-                            <thead><tr><th>Fecha</th><th>Jugador</th><th>Puntaje</th><th>Acción</th></tr></thead>
+                    <div style="overflow-x: auto; border: 1px solid var(--border-panel); border-radius: 12px; background: var(--bg-panel);">
+                        <table class="tabla-admin">
+                            <thead><tr><th style="padding-left:1rem;">Fecha</th><th>Jugador</th><th>Pts</th><th style="text-align:center;">Acción</th></tr></thead>
                             <tbody id="tabla-admin-ranking-full"></tbody>
                         </table>
-                    </figure>
+                    </div>
                 </div>
 
                 <!-- SECCIÓN: CONFIGURACIÓN -->
-                <div id="sec-admin-config" class="sec-admin" style="background: #0d1117; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d;">
+                <div id="sec-admin-config" class="sec-admin admin-card">
+                    <h4 style="margin-bottom: 2rem;">Parámetros del Juego</h4>
                     <form id="formAdminConfig">
                         <div class="grid">
                             <label>Vidas Iniciales: <input type="number" id="cfg-vidas" min="1" max="10" required></label>
-                            <label>Puntos por Letra: <input type="number" id="cfg-puntos" min="1" max="100" required></label>
+                            <label>Puntos x Letra: <input type="number" id="cfg-puntos" min="1" max="100" required></label>
                         </div>
-                        <div class="grid">
+                        <div class="grid" style="margin-top: 1rem;">
                             <label>Penalización Error: <input type="number" id="cfg-penalizacion" min="0" max="50" required></label>
                             <label>Multiplicador Máx: <input type="number" id="cfg-mult" min="1" max="10" required></label>
                         </div>
-                        <button type="submit" style="margin-top: 1rem;">Guardar Configuración</button>
+                        <button type="submit" style="margin-top: 2rem; border-radius: 8px;">Guardar Configuración</button>
                     </form>
                 </div>
 
                 <div style="text-align: center; margin-top: 2rem;">
-                    <button class="secondary outline" onclick="volverAlMenu()" style="max-width: 300px;">Volver al Juego</button>
+                    <button class="secondary outline" onclick="volverAlMenu()" style="border: none;">← Volver al Menú Principal</button>
                 </div>
             </div>
         </article>
